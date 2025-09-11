@@ -1,6 +1,5 @@
 import asyncio
 import time
-from typing import Any, Dict, Optional
 
 import av  # type: ignore
 from aiortc import MediaStreamTrack  # type: ignore
@@ -9,20 +8,14 @@ from aiortc.mediastreams import VideoStreamTrack  # type: ignore
 from hardware import Camera
 
 
-_shared_camera: Optional[Camera] = None
-
-
 class CameraVideoTrack(VideoStreamTrack):
     """Picamera2에서 프레임을 가져와 WebRTC 트랙으로 제공."""
 
     kind = "video"
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, camera: Camera):
         super().__init__()
-        global _shared_camera
-        if _shared_camera is None:
-            _shared_camera = Camera(config=config)
-        self.camera = _shared_camera
+        self.camera = camera
         self.last_ts = time.time()
 
     async def recv(self) -> MediaStreamTrack:

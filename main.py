@@ -38,7 +38,7 @@ def create_app() -> Flask:
     def webrtc_offer() -> Response:
         offer = request.get_json(force=True)
         pc = RTCPeerConnection()
-        pc.addTrack(CameraVideoTrack(config))
+        pc.addTrack(CameraVideoTrack(camera))
 
         async def run() -> Dict[str, str]:
             await pc.setRemoteDescription(offer)
