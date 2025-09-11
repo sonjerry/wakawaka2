@@ -1,29 +1,12 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-    <title>Pi Camera Stream</title>
+    <meta charset="UTF-8">
+    <title>Video Streaming</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <video id="video" autoplay playsinline></video>
-    <script>
-        async function startStream() {
-            const pc = new RTCPeerConnection();
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-
-            const response = await fetch('/offer', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sdp: pc.localDescription.sdp, type: pc.localDescription.type })
-            });
-            const answer = await response.json();
-            await pc.setRemoteDescription(new RTCSessionDescription(answer));
-
-            pc.ontrack = event => {
-                document.getElementById('video').srcObject = event.streams[0];
-            };
-        }
-        startStream();
-    </script>
+    <video id="remoteVideo" autoplay playsinline></video>
+    <script src="app.js"></script>
 </body>
 </html>
