@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>WAKAWAKA</title>
+
+  <link rel="preload" href="/static/style.css" as="style">
+  <link rel="stylesheet" href="/static/style.css">
+
+  <link rel="preload" href="/static/app.js" as="script">
+</head>
+<body class="cluster-off">
+  <noscript>
+    <div class="noscript-warning">
+      이 페이지는 JavaScript가 필요합니다. 브라우저에서 JavaScript를 활성화하세요.
+    </div>
+  </noscript>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="video-container">
+    <iframe src="%%VIDEO_SRC%%" allow="autoplay; fullscreen; picture-in-picture"></iframe>
+  </div>
+
+  <div class="main-layout">
+    <div class="bottom-left-controls">
+      <button class="control-btn" id="btnHead" aria-pressed="false">Headlight (H)</button>
+      <button class="control-btn" id="btnSport" aria-pressed="false">Sport Mode (M)</button>
+    </div>
+
+    <div class="instrument-cluster">
+      <div class="gauge-wrapper">
+        <div class="gauge" aria-label="엔진 회전수 게이지">
+          <div class="label">RPM</div>
+          <div class="gauge-redzone"></div>
+          <div class="needle" id="needleRpm"></div>
+          <div class="hub"></div>
+          <div class="readout" id="readoutRpm">0</div>
+        </div>
+      </div>
+
+      <div class="center-info">
+        <div class="gear-display" id="gearIndicator" aria-live="polite">P</div>
+        <button class="engine-btn" id="btnEngine">Engine Start/Stop (E)</button>
+        <div class="net-card">
+          <div class="net-label">NET</div>
+          <div class="net-value" id="netLatency">— ms</div>
+        </div>
+      </div>
+
+      <div class="gauge-wrapper">
+        <div class="gauge" aria-label="속도 게이지">
+          <div class="label">SPEED</div>
+          <div class="needle" id="needleSpeed"></div>
+          <div class="hub"></div>
+          <div class="readout" id="readoutSpeed">0%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-right-controls">
+      <div class="card gear-selector" role="group" aria-label="기어 선택">
+        <button class="gear-btn" data-gear="P" aria-label="P 기어">P</button>
+        <button class="gear-btn" data-gear="R" aria-label="R 기어">R</button>
+        <button class="gear-btn" data-gear="N" aria-label="N 기어">N</button>
+        <button class="gear-btn" data-gear="D" aria-label="D 기어">D</button>
+      </div>
+      
+      <div class="card axis-card" aria-label="입력축 표시">
+        <div class="axis-title">INPUT</div>
+        <div class="axis-bar" aria-hidden="true">
+          <div class="axis-fill-pos" id="axisBarFill"></div>
+          <div class="axis-fill-neg" id="axisBarFillNeg"></div>
+          <div class="axis-center-line"></div>
+        </div>
+        <div class="axis-readout" id="axisReadout">0</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

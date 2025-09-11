@@ -1,0 +1,377 @@
+/* style.css */
+
+:root {
+  --bg: #0a0f1e;
+  --ink: #e8edff;
+  --muted: #9fb2ff;
+  --border: rgba(255, 255, 255, .14);
+  --ice: #84d8ff;
+  --needle-rpm: #84d8ff;
+  --needle-speed: #ff554d;
+  --card: #0d1430;
+  --warn: #ff3030;
+  --sport-color: #ff604d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  /* [수정] min-height: 100vh로 변경하여 항상 화면 전체 높이를 차지하도록 강제 */
+  min-height: 100vh;
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  
+  /* [수정] body를 flex 컨테이너로 만들어 비디오와 컨트롤 영역을 수직 배치 */
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  transition: background-color .4s;
+}
+
+body.sport-mode-active {
+  --ice: var(--sport-color);
+  --needle-rpm: var(--sport-color);
+}
+
+
+/* ==== 1. 전체 레이아웃 구조 ==== */
+
+.video-container {
+  /* [수정] flex-grow: 1로 설정해 남는 수직 공간을 모두 차지하도록 함 */
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem; /* 비디오 주변에 약간의 여백 추가 */
+  min-height: 0; /* flex 아이템이 수축할 수 있도록 허용 */
+}
+
+.video-container iframe {
+  /* [수정] 원본 비디오 비율(16:9)을 유지하면서 컨테이너에 맞게 조절 */
+  display: block;
+  width: 100%;
+  max-width: 1600px; /* 비디오가 너무 커지는 것을 방지 */
+  max-height: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  background: #050505;
+}
+
+/* 하단 컨트롤 전체를 감싸는 컨테이너 */
+.main-layout {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 10px 20px;
+  gap: 16px;
+  /* [수정] flex-shrink: 0으로 설정해 컨트롤 영역이 수축되지 않도록 방지 */
+  flex-shrink: 0;
+}
+
+
+/* ==== 2. 하단 컨트롤 UI (좌/중/우) ==== */
+
+.bottom-left-controls,
+.instrument-cluster,
+.bottom-right-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bottom-left-controls {
+  align-items: flex-start;
+  min-width: 150px;
+}
+
+.instrument-cluster {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 20px;
+}
+
+.bottom-right-controls {
+  align-items: flex-end;
+  min-width: 150px;
+}
+
+.center-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+
+/* ==== 3. UI 컴포넌트 (버튼, 카드 등) ==== */
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px;
+  transition: border-color .4s;
+}
+
+body.sport-mode-active .card {
+  border-color: rgba(255, 100, 80, .3);
+}
+
+.gear-display {
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  width: 140px;
+  text-align: center;
+}
+
+.gear-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gear-btn,
+.control-btn,
+.engine-btn {
+  padding: 14px 20px;
+  font-weight: 700;
+  border-radius: 12px;
+  cursor: pointer;
+  background: #1c233a;
+  border: 1px solid var(--border);
+  transition: all .15s;
+  color: var(--muted);
+  font-size: 16px;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.gear-btn:active,
+.control-btn:active,
+.engine-btn:active {
+  transform: scale(.97);
+  background: #2a2d3a;
+}
+
+.gear-btn.active {
+  background: var(--ice);
+  color: #000;
+}
+
+.control-btn.on {
+  box-shadow: 0 0 12px var(--ice);
+  color: var(--ice);
+}
+
+.engine-btn {
+  background-color: #384055;
+  color: #fff;
+  width: 100%;
+}
+
+
+/* ==== 4. 계기판 (Gauge) ==== */
+
+.gauge-wrapper {
+  width: 180px;
+  height: 180px;
+}
+
+.gauge {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, .06) 0 58%, transparent 59% 100%),
+    conic-gradient(from -120deg, rgba(132, 216, 255, .16) 0 100deg, rgba(132, 216, 255, .08) 100deg 160deg, rgba(132, 216, 255, .03) 160deg 220deg, transparent 220deg 360deg);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .45) inset, 0 0 0 2px rgba(255, 255, 255, .04), 0 12px 22px rgba(0, 0, 0, .25);
+  transition: filter .5s ease, opacity .5s ease;
+}
+
+.cluster-off .gauge,
+.cluster-off .center-info {
+  filter: brightness(.35) saturate(.6);
+  opacity: .6;
+  transition: filter .5s ease, opacity .5s ease, transform .5s ease;
+}
+
+.cluster-on .gauge,
+.cluster-on .center-info {
+  filter: none;
+  opacity: 1;
+}
+
+.gauge-redzone {
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(from 90deg, var(--warn) 0deg 30deg, transparent 30deg 360deg);
+  opacity: .7;
+  transition: opacity .4s;
+  mask: radial-gradient(circle at 50% 50%, transparent 0 63%, #000 63.5% 100%);
+  z-index: 2;
+}
+
+.needle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 46%;
+  transform-origin: 50% 90%;
+  transform: translate(-50%, -100%) rotate(-120deg);
+  border-radius: 2px;
+  transition: transform .10s ease-out, background .3s;
+  z-index: 10;
+}
+
+#needleRpm {
+  background: linear-gradient(var(--needle-rpm), #b0e8ff);
+  box-shadow: 0 0 10px var(--needle-rpm);
+}
+
+#needleSpeed {
+  background: linear-gradient(var(--needle-speed), #ff8a83);
+  box-shadow: 0 0 10px var(--needle-speed);
+}
+
+#needleRpm.redzone {
+  background: var(--warn);
+}
+
+.hub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #dfe6f9, #7282a8);
+  border: 1px solid rgba(255, 255, 255, .25);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, .5);
+  z-index: 11;
+}
+
+.label {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  transform: translate(-50%, -50%);
+  font-weight: 700;
+  letter-spacing: 2.4px;
+  font-size: 12px;
+  color: var(--ice);
+  text-shadow: 0 0 8px rgba(132, 216, 255, .6);
+  z-index: 12;
+}
+
+.readout {
+  position: absolute;
+  left: 50%;
+  top: 67%;
+  transform: translate(-50%, -50%);
+  font-family: monospace;
+  font-size: 24px;
+  color: #eaf3ff;
+  text-shadow: 0 0 10px rgba(132, 216, 255, .6);
+  z-index: 12;
+}
+
+
+/* ==== 5. 기타 UI (입력 바, 네트워크 등) ==== */
+
+.axis-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.axis-title {
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+
+.axis-bar {
+  height: 160px;
+  width: 28px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  position: relative;
+  background: #141a32;
+  overflow: hidden;
+}
+
+.axis-fill-pos, .axis-fill-neg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  opacity: .9;
+}
+
+.axis-fill-pos {
+  bottom: 50%;
+  background: linear-gradient(#ff7060, #ffb0a6);
+}
+
+.axis-fill-neg {
+  top: 50%;
+  background: linear-gradient(#96c7ff, #4fd1ff);
+}
+
+.axis-center-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% - 1px);
+  height: 2px;
+  background: rgba(255, 255, 255, .25);
+}
+
+.net-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.net-label {
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+
+
+/* ==== 6. 반응형 디자인 ==== */
+/* 화면 너비가 900px 이하일 때 컨트롤들을 세로로 쌓음 */
+
+@media (max-width: 900px) {
+  .main-layout {
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 10px;
+  }
+  .instrument-cluster {
+    order: -1; /* 계기판을 맨 위로 올림 */
+  }
+}
