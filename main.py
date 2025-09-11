@@ -32,16 +32,20 @@ async def offer():
             await pc.close()
             pcs.discard(pc)
 
-    # MediaPlayer 설정: rpicam-vid 명령어를 subprocess로 실행
+    # MediaPlayer 설정: rpicam-vid의 출력을 파이프로 처리
     player = MediaPlayer(
-        file=subprocess.PIPE,
-        format='rawvideo',  # 또는 'h264' 사용 가능
+        file='pipe:',  # 파이프 입력 사용
+        format='h264',  # H.264 포맷 지정
         options={
             'video_size': '640x480',
             'framerate': '30',
-            'format': 'h264',  # 출력 형식을 H.264로 지정
         },
-        command=['rpicam-vid', '--inline', '-o', '-', '--width', '640', '--height', '480', '--libav-format', 'h264']
+        # subprocess를 통해 rpicam-vid 실행
+        process=subprocess.Popen(
+            ['rpicam-vid', '--inline', '-o', '-', '--width', '640', '--height', '480', '--libav-format', 'h264'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
     )
     pc.addTrack(player.video)
 
