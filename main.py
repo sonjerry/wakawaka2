@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from flask import Flask, request, send_from_directory, Response
 import requests
+from flask import jsonify
 
 # ===== 설정 =====
 BASE_DIR = Path(__file__).parent.resolve()
@@ -47,5 +48,35 @@ def whep_proxy():
         headers["Location"] = loc
     return Response(r.text, status=r.status_code, headers=headers, mimetype="application/sdp")
 
+    
+@app.post("/offer")
+def offer_shim():
+    """
+    기존 프론트가 보내는 {sdp, type:'offer'} JSON을 받아
+    pi-webrtc의 WHEP로(application/sdp) 전달하고, answer를 JSON으로 반환.
+    """
+    data = request.get_json(silent=True) or {}
+    sdp = data.get("sdp")
+    if not sdp:
+        return jsonify({"error": "invalid sdp"}), 400
+
+    # 내부 WHEP로 전달
+    try:
+        r = requests.post(
+            WHEP_UPSTREAM,              # ex) http://127.0.0.1:8080/whep
+            data=sdp,
+            headers={"Content-Type": "application/sdp"},
+            timeout=10,
+        )
+    except requests.RequestException as e:
+        return jsonify({"error": f"upstream error: {e}"}), 502
+
+    if r.status_code >= 400:
+        return jsonify({"error": f"whep upstream {r.status_code}", "body": r.text[:200]}), 502
+
+    answer_sdp = r.text  # pi-webrtc가 돌려준 순수 SDP
+    return jsonify({"sdp": answer_sdp, "type": "answer"})
+
 if __name__ == "__main__":
     app.run(host=WEB_HOST, port=WEB_PORT)
+
