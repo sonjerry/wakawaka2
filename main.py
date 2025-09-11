@@ -9,7 +9,6 @@ app = Quart(__name__)
 app = cors(app, allow_origin="*")
 pcs = set()
 
-# 정적 파일 디렉토리 설정
 @app.route('/')
 async def index():
     return await send_from_directory('static', 'index.html')
@@ -32,7 +31,16 @@ async def offer():
             await pc.close()
             pcs.discard(pc)
 
-    player = MediaPlayer("rpicam-vid --inline -o - --width 640 --height 480")
+    # MediaPlayer 설정: h264 형식으로 출력
+    player = MediaPlayer(
+        file=None,
+        format='pipe',
+        options={
+            'video_size': '640x480',
+            'framerate': '30'
+        },
+        args=['rpicam-vid', '--inline', '-o', '-', '--width', '640', '--height', '480', '--libav-format', 'h264']
+    )
     pc.addTrack(player.video)
 
     await pc.setRemoteDescription(offer)
