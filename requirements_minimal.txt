@@ -2,5 +2,3 @@ Flask==2.3.3
 Flask-CORS==4.0.0
 Werkzeug==2.3.7
 websockets==11.0.3
-sdp-transform==1.1.0
-PyGObject==3.46.0

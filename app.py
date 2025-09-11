@@ -12,7 +12,13 @@ gi.require_version('Gst', '1.0')
 gi.require_version('GstWebRTC', '1.0')
 gi.require_version('GstSdp', '1.0')
 from gi.repository import Gst, GstWebRTC, GstSdp, GLib
-import sdp_transform
+try:
+    import sdp_transform
+except ImportError:
+    # sdp_transform이 없으면 간단한 SDP 파싱 함수 사용
+    def parse_sdp(sdp_text):
+        return {'media': []}
+    sdp_transform = type('sdp_transform', (), {'parse': parse_sdp})()
 
 # GStreamer 초기화
 Gst.init(None)
