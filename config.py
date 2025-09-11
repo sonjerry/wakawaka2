@@ -5,10 +5,8 @@ from typing import Any, Dict
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "app_name": "WakaWaka",
-    "version": "0.1.0",
-    "hardware": {"port": "COM3", "baudrate": 115200},
-    "camera": {"index": 0, "width": 640, "height": 480, "fps": 30},
-    "simulate": {"width": 640, "height": 360, "tick_ms": 200},
+    "version": "0.2.0",
+    "camera": {"width": 640, "height": 480, "fps": 30},
     "stream": {"host": "0.0.0.0", "port": 8000, "debug": False},
 }
 

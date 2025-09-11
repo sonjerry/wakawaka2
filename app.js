@@ -1,26 +1,15 @@
 (() => {
   const img = document.getElementById('stream');
-  const start = document.getElementById('start');
-  const stop = document.getElementById('stop');
-  if (!img || !start || !stop) return;
-
+  if (!img) return;
   const STREAM_URL = '/stream.mjpg';
-  let running = false;
-
-  function startStream() {
-    if (running) return;
+  function start() {
     img.src = STREAM_URL + '?t=' + Date.now();
-    running = true;
   }
-
-  function stopStream() {
-    if (!running) return;
-    img.src = '';
-    running = false;
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    start();
+  } else {
+    window.addEventListener('DOMContentLoaded', start);
   }
-
-  start.addEventListener('click', startStream);
-  stop.addEventListener('click', stopStream);
 })();
 
 

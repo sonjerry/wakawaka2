@@ -1,21 +1,15 @@
-import argparse
 import time
-from typing import Generator, Literal
+from typing import Generator
 
 from flask import Flask, Response, send_from_directory
 
 from config import load_config
 from hardware import Camera
-from simulate import SimulatedCamera
 
 
-def create_app(mode: Literal["hardware", "simulate"]) -> Flask:
+def create_app() -> Flask:
     config = load_config()
-
-    if mode == "hardware":
-        camera = Camera(config=config)
-    else:
-        camera = SimulatedCamera(config=config)
+    camera = Camera(config=config)
 
     app = Flask(
         __name__,
@@ -46,8 +40,8 @@ def create_app(mode: Literal["hardware", "simulate"]) -> Flask:
     return app
 
 
-def run(mode: Literal["hardware", "simulate"]) -> None:
-    app = create_app(mode)
+def run() -> None:
+    app = create_app()
     cfg = load_config()
     host = cfg.get("stream", {}).get("host", "0.0.0.0")
     port = int(cfg.get("stream", {}).get("port", 8000))
@@ -56,14 +50,6 @@ def run(mode: Literal["hardware", "simulate"]) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="WakaWaka entrypoint")
-    parser.add_argument(
-        "--mode",
-        choices=["hardware", "simulate"],
-        default="simulate",
-        help="실행 모드 선택 (hardware | simulate)",
-    )
-    args = parser.parse_args()
-    run(mode=args.mode)  # type: ignore[arg-type]
+    run()
 
 
