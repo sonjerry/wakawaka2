@@ -1,5 +1,21 @@
 #!/bin/bash
 
+# FFmpeg 및 MediaMTX 설치
+echo "필요한 패키지 설치 중..."
+sudo apt update
+sudo apt install -y ffmpeg
+
+# MediaMTX 다운로드 및 설치
+echo "MediaMTX 설치 중..."
+wget https://github.com/bluenviron/mediamtx/releases/latest/download/mediamtx_linux_arm64v8.tar.gz
+tar -xzf mediamtx_linux_arm64v8.tar.gz
+sudo mv mediamtx /usr/local/bin/
+sudo chmod +x /usr/local/bin/mediamtx
+rm mediamtx_linux_arm64v8.tar.gz
+
+# Python 의존성 설치
+echo "Python 의존성 설치 중..."
+pip3 install -r requirements.txt
 
 # 카메라 권한 설정
 sudo usermod -a -G video $USER
@@ -24,12 +40,13 @@ sudo sysctl -w net.ipv4.udp_wmem_min=8192
 echo "CPU 성능 모드 설정 중..."
 echo 'performance' | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
 
-echo "설정 완료. WebRTC 서버를 시작합니다..."
+echo "설정 완료. FFmpeg + MediaMTX 서버를 시작합니다..."
 echo "웹 인터페이스: http://100.84.162.124:8000"
-echo "WebSocket: ws://100.84.162.124:8080"
+echo "MediaMTX WebRTC: http://100.84.162.124:8889"
+echo "RTMP 스트림: rtmp://100.84.162.124:1935/live/stream"
 echo "비트레이트: 3Mbps (1280x720 @ 30fps)"
 echo ""
 echo "Ctrl+C로 종료"
 
-# WebRTC 서버 실행
+# FFmpeg + MediaMTX 서버 실행
 python3 app.py
