@@ -178,6 +178,8 @@
                     };
                     
                     // MediaMTX WebRTC 스트림 요청 (WHEP 사용)
+                    console.log('MediaMTX WHEP 엔드포인트에 연결 시도 중...');
+                    
                     const response = await fetch('http://100.84.162.124:8889/whep', {
                         method: 'POST',
                         headers: {
@@ -189,15 +191,22 @@
                         })
                     });
                     
+                    console.log('MediaMTX 응답 상태:', response.status);
+                    console.log('MediaMTX 응답 헤더:', response.headers);
+                    
                     if (response.ok) {
                         const answerSdp = await response.text();
+                        console.log('MediaMTX Answer SDP 수신:', answerSdp.substring(0, 100) + '...');
+                        
                         await pc.setRemoteDescription(new RTCSessionDescription({
                             type: 'answer',
                             sdp: answerSdp
                         }));
                         console.log('MediaMTX WebRTC 연결 성공');
                     } else {
-                        throw new Error('MediaMTX 연결 실패');
+                        const errorText = await response.text();
+                        console.error('MediaMTX 연결 실패:', response.status, errorText);
+                        throw new Error(`MediaMTX 연결 실패: ${response.status} - ${errorText}`);
                     }
                     
                 } catch (error) {

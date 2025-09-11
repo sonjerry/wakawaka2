@@ -31,60 +31,21 @@ echo "비트레이트: 3Mbps (1280x720 @ 30fps)"
 echo ""
 echo "Ctrl+C로 종료"
 
-# MediaMTX 설정 파일 생성
-echo "MediaMTX 설정 파일 생성 중..."
-cat > mediamtx.yml << 'EOF'
-# MediaMTX 설정
-rtmp: yes
-rtsp: yes
-webrtc: yes
-hls: no
-webrtcEncryption: no
-webrtcAllowOrigin: "*"
-logLevel: info
-logDestinations: [stdout]
-api: yes
-apiAddress: ":9997"
-metrics: yes
-metricsAddress: ":9998"
-pprof: no
-pprofAddress: ":9999"
-readTimeout: 10s
-writeTimeout: 10s
-readBufferCount: 2048
-udpMaxPayloadSize: 1472
-EOF
+# 가상환경 생성 및 설정
+echo "가상환경 설정 중..."
+python3 -m venv venv
+source venv/bin/activate
 
-# MediaMTX 서버 백그라운드 실행
-echo "MediaMTX 서버 시작 중..."
-mediamtx mediamtx.yml &
-MEDIAMTX_PID=$!
+# Python 의존성 설치
+echo "Python 의존성 설치 중..."
+pip install -r requirements.txt
 
-# MediaMTX 시작 대기
-sleep 3
-
-# MediaMTX 상태 확인
-if ps -p $MEDIAMTX_PID > /dev/null; then
-    echo "MediaMTX 서버가 시작되었습니다 (PID: $MEDIAMTX_PID)"
-else
-    echo "MediaMTX 서버 시작 실패!"
-    exit 1
-fi
-
-# Flask 서버 실행
-echo "Flask 서버 시작 중..."
-python3 app.py &
-FLASK_PID=$!
-
-# 프로세스 종료 처리
-cleanup() {
-    echo "서버 종료 중..."
-    kill $MEDIAMTX_PID 2>/dev/null
-    kill $FLASK_PID 2>/dev/null
-    exit 0
-}
-
-trap cleanup SIGINT SIGTERM
-
-# 프로세스 대기
-wait
+echo "설정 완료!"
+echo ""
+echo "사용 방법:"
+echo "1. MediaMTX 서버 실행: ./run_mediamtx.sh"
+echo "2. 웹서버 실행: ./run_webserver.sh"
+echo ""
+echo "또는 통합 실행:"
+echo "./run_mediamtx.sh &"
+echo "./run_webserver.sh"
