@@ -48,8 +48,8 @@ ESC_REV_START_NORM  = 0.01   # 후진 시작 임계 (1%에서 즉시 반응)
 
 # ==== 3. 시뮬레이션 및 엔진/변속 설정 ====
 TICK_S          = 0.01       # 시뮬레이션/제어 루프 주기
-ARM_NEUTRAL_S   = 2.0        # ESC 아밍을 위한 중립 펄스 유지 시간 (2초로 증가)
-ARM_SEQUENCE_S  = 0.5        # 아밍 시퀀스 각 단계 간격
+ARM_NEUTRAL_S   = 0.5        # ESC 아밍을 위한 중립 펄스 유지 시간 (Micro ESC 최적화)
+ARM_SEQUENCE_S  = 0.2        # 아밍 시퀀스 각 단계 간격 (더 빠르게)
 LED_SINK_WIRING = True       # LED 배선 방식 (현재 사용되지 않음)
 
 # 가상 엔진/변속 관련
