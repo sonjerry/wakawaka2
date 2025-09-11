@@ -23,12 +23,6 @@ class Camera:
         picam.start()
         self.picam = picam
 
-    def read_jpeg(self) -> Optional[bytes]:
-        assert self.picam is not None
-        arr = self.picam.capture_array()
-        ok, buf = cv2.imencode(".jpg", arr, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-        return buf.tobytes() if ok else None
-
     def read_frame_bgr(self):
         assert self.picam is not None
         arr = self.picam.capture_array()

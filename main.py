@@ -1,5 +1,5 @@
 import time
-from typing import Generator, Dict
+from typing import Dict
 
 from quart import Quart, Response, jsonify, request, send_from_directory
 from aiortc import RTCPeerConnection, RTCSessionDescription  # type: ignore
@@ -17,15 +17,6 @@ def create_app() -> Quart:
         static_folder=".",
         static_url_path="",
     )
-
-    def mjpeg_generator() -> Generator[bytes, None, None]:
-        boundary = b"--frame"
-        while True:
-            frame = camera.read_jpeg()
-            if frame is None:
-                time.sleep(0.01)
-                continue
-            yield boundary + b"\r\n" + b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
 
     @app.get("/")
     async def root() -> Response:
