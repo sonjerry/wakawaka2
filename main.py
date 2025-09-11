@@ -1,4 +1,5 @@
 import asyncio
+import subprocess
 from quart import Quart, request, jsonify, send_from_directory
 from quart_cors import cors
 from aiortc import RTCPeerConnection, RTCSessionDescription
@@ -31,15 +32,16 @@ async def offer():
             await pc.close()
             pcs.discard(pc)
 
-    # MediaPlayer 설정: h264 형식으로 출력
+    # MediaPlayer 설정: rpicam-vid 명령어를 subprocess로 실행
     player = MediaPlayer(
-        file=None,
-        format='pipe',
+        file=subprocess.PIPE,
+        format='rawvideo',  # 또는 'h264' 사용 가능
         options={
             'video_size': '640x480',
-            'framerate': '30'
+            'framerate': '30',
+            'format': 'h264',  # 출력 형식을 H.264로 지정
         },
-        args=['rpicam-vid', '--inline', '-o', '-', '--width', '640', '--height', '480', '--libav-format', 'h264']
+        command=['rpicam-vid', '--inline', '-o', '-', '--width', '640', '--height', '480', '--libav-format', 'h264']
     )
     pc.addTrack(player.video)
 
