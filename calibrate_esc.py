@@ -32,9 +32,9 @@ def calibrate_esc():
         print("ESC 아밍 완료!")
         print()
         
-        # 펄스 범위 설정
-        min_pulse = 1
-        max_pulse = 3000
+        # 펄스 범위 설정 (캘리브레이션된 범위)
+        min_pulse = 1600  # ESC 최소값
+        max_pulse = 1800  # ESC 최대값 (8% 속도)
         step = 1
         delay = 0.1  # 각 단계마다 0.1초 대기
         
@@ -109,6 +109,9 @@ def quick_test():
     """빠른 테스트 - 주요 펄스값들만 테스트"""
     print("=== ESC 빠른 테스트 ===")
     print("주요 펄스값들을 테스트합니다.")
+    print("1600us: 최소값 (후진/브레이크)")
+    print("1700us: 중립값 (정지)")
+    print("1800us: 최대값 (8% 속도)")
     print()
     
     hardware.init()
@@ -121,8 +124,8 @@ def quick_test():
         print("아밍 완료!")
         print()
         
-        # 테스트할 펄스값들
-        test_pulses = [1000, 1200, 1500, 1800, 2000]
+        # 테스트할 펄스값들 (캘리브레이션된 범위)
+        test_pulses = [1600, 1650, 1700, 1750, 1800]
         
         for pulse_us in test_pulses:
             print(f"펄스 {pulse_us}us 테스트 중... (3초)")

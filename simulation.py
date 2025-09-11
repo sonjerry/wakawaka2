@@ -76,8 +76,8 @@ class VehicleModel:
         self.SHIFT_RPM_DROP = 0.08 # 업시프트 시 RPM 하락량
         self.SHIFT_RPM_POP = 0.12  # 다운시프트 시 RPM 상승량 (Rev-matching)
 
-        # 가상 9단 변속 경계 (속도 %) - 1%에서 즉시 반응하도록 수정
-        self.SHIFT_BANDS = [1, 15, 25, 35, 50, 65, 80, 92]
+        # 가상 9단 변속 경계 (속도 %) - 8%에서 1단 유지하도록 수정
+        self.SHIFT_BANDS = [8, 15, 25, 35, 50, 65, 80, 92]
         
         # 헌팅 방지 파라미터
         self.SHIFT_LOCK_S = max(0.15, self.SHIFT_DELAY)
