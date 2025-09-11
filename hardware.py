@@ -54,12 +54,12 @@ def shutdown():
 def esc_from_norm(x: float) -> int:
     """
     논리 명령(-1..1)을 물리적인 ESC PWM 신호(µs)로 변환합니다.
-    단순화된 선형 변환으로 1:1 대응을 보장합니다.
+    0이 중립값이 되도록 수정된 선형 변환입니다.
     """
     x = max(-1.0, min(1.0, float(x)))
     neu = config.ESC_NEUTRAL_US + config.ESC_TRIM_US
 
-    # 단순한 선형 변환: -1~1을 MIN~MAX로 직접 매핑
+    # 수정된 선형 변환: 0이 중립값이 되도록
     if x > 0:
         # 전진: 0~1을 중립~최대로 변환
         us = neu + (config.ESC_MAX_US - neu) * x
@@ -67,7 +67,7 @@ def esc_from_norm(x: float) -> int:
         # 후진: -1~0을 최소~중립으로 변환
         us = neu + (config.ESC_MIN_US - neu) * (-x)
     else:
-        # 중립
+        # 중립 (x = 0)
         us = neu
 
     return int(us)
