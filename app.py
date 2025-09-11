@@ -188,7 +188,12 @@ def start_stream():
         # FFmpeg 스트림 시작 (MediaMTX는 스크립트에서 실행됨)
         start_ffmpeg_stream()
         
-        return jsonify({'status': 'success', 'message': '스트림이 시작되었습니다'})
+        return jsonify({
+            'status': 'success', 
+            'message': '스트림이 시작되었습니다',
+            'rtmp_url': 'rtmp://100.84.162.124:1935/live/stream',
+            'webrtc_url': 'http://100.84.162.124:8889/whep'
+        })
     
     except Exception as e:
         logger.error(f"스트림 시작 오류: {e}")

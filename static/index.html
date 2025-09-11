@@ -180,6 +180,19 @@
                     // MediaMTX WebRTC 스트림 요청 (WHEP 사용)
                     console.log('MediaMTX WHEP 엔드포인트에 연결 시도 중...');
                     
+                    // 먼저 스트림이 있는지 확인
+                    const streamCheck = await fetch('http://100.84.162.124:9997/v3/paths/list');
+                    if (!streamCheck.ok) {
+                        throw new Error('MediaMTX API에 연결할 수 없습니다');
+                    }
+                    
+                    const streams = await streamCheck.json();
+                    console.log('사용 가능한 스트림:', streams);
+                    
+                    if (!streams.items || streams.items.length === 0) {
+                        throw new Error('스트림이 없습니다. FFmpeg으로 스트림을 먼저 시작하세요');
+                    }
+                    
                     const response = await fetch('http://100.84.162.124:8889/whep', {
                         method: 'POST',
                         headers: {
