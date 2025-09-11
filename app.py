@@ -130,13 +130,19 @@ webrtcEncryption: no
 webrtcAllowOrigin: "*"
 logLevel: info
 logDestinations: [stdout]
+rtmpAddress: ":1935"
+rtspAddress: ":8554"
+webrtcAddress: ":8889"
+apiAddress: ":9997"
+metricsAddress: ":9998"
+pprofAddress: ":9999"
 """
         
         with open('mediamtx.yml', 'w') as f:
             f.write(config)
         
         # MediaMTX 실행
-        mediamtx_cmd = ['mediamtx', 'mediamtx.yml']
+        mediamtx_cmd = ['/usr/local/bin/mediamtx', 'mediamtx.yml']
         
         logger.info("MediaMTX 서버 시작")
         mediamtx_process = subprocess.Popen(
@@ -146,10 +152,19 @@ logDestinations: [stdout]
             preexec_fn=os.setsid
         )
         
-        logger.info("MediaMTX 서버 시작됨")
+        # MediaMTX 시작 대기
+        time.sleep(3)
+        
+        # MediaMTX 상태 확인
+        if mediamtx_process.poll() is None:
+            logger.info("MediaMTX 서버 시작됨")
+        else:
+            logger.error("MediaMTX 서버 시작 실패")
+            raise Exception("MediaMTX 서버 시작 실패")
         
     except Exception as e:
         logger.error(f"MediaMTX 시작 오류: {e}")
+        raise
 
 def stop_mediamtx():
     """MediaMTX 서버 중지"""
@@ -170,11 +185,7 @@ def stop_mediamtx():
 def start_stream():
     """스트림 시작"""
     try:
-        # MediaMTX 시작
-        start_mediamtx()
-        time.sleep(2)  # MediaMTX 시작 대기
-        
-        # FFmpeg 스트림 시작
+        # FFmpeg 스트림 시작 (MediaMTX는 스크립트에서 실행됨)
         start_ffmpeg_stream()
         
         return jsonify({'status': 'success', 'message': '스트림이 시작되었습니다'})
@@ -188,7 +199,6 @@ def stop_stream():
     """스트림 중지"""
     try:
         stop_ffmpeg_stream()
-        stop_mediamtx()
         
         return jsonify({'status': 'success', 'message': '스트림이 중지되었습니다'})
     
@@ -214,7 +224,6 @@ def update_status():
 def cleanup():
     """프로세스 정리"""
     stop_ffmpeg_stream()
-    stop_mediamtx()
 
 if __name__ == '__main__':
     # 상태 업데이트 스레드 시작

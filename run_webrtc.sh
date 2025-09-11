@@ -7,11 +7,11 @@ sudo apt install -y ffmpeg
 
 # MediaMTX 다운로드 및 설치
 echo "MediaMTX 설치 중..."
-wget https://github.com/bluenviron/mediamtx/releases/latest/download/mediamtx_linux_arm64v8.tar.gz
-tar -xzf mediamtx_linux_arm64v8.tar.gz
+wget https://github.com/bluenviron/mediamtx/releases/download/v1.14.0/mediamtx_v1.14.0_linux_arm64v8.tar.gz
+tar -xzf mediamtx_v1.14.0_linux_arm64v8.tar.gz
 sudo mv mediamtx /usr/local/bin/
 sudo chmod +x /usr/local/bin/mediamtx
-rm mediamtx_linux_arm64v8.tar.gz
+rm mediamtx_v1.14.0_linux_arm64v8.tar.gz
 
 # Python 의존성 설치
 echo "Python 의존성 설치 중..."
@@ -48,5 +48,25 @@ echo "비트레이트: 3Mbps (1280x720 @ 30fps)"
 echo ""
 echo "Ctrl+C로 종료"
 
-# FFmpeg + MediaMTX 서버 실행
-python3 app.py
+# MediaMTX 서버 백그라운드 실행
+echo "MediaMTX 서버 시작 중..."
+mediamtx &
+MEDIAMTX_PID=$!
+
+# Flask 서버 실행
+echo "Flask 서버 시작 중..."
+python3 app.py &
+FLASK_PID=$!
+
+# 프로세스 종료 처리
+cleanup() {
+    echo "서버 종료 중..."
+    kill $MEDIAMTX_PID 2>/dev/null
+    kill $FLASK_PID 2>/dev/null
+    exit 0
+}
+
+trap cleanup SIGINT SIGTERM
+
+# 프로세스 대기
+wait
