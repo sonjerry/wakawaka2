@@ -69,8 +69,6 @@ class VehicleModel:
 
         # 크리프(Creep) 현상 파라미터 (D 기어에서 브레이크를 뗐을 때 천천히 앞으로 가는 현상)
         self.CREEP_A = 0.05
-        self.CREEP_CAP = 0.70 # 크리프 최대 속도 (70%)
-        self.CREEP_START_SPEED = 0.08 # 크리프가 시작되는 속도 (8%)
         self.V_EPS = 0.01     # 정지로 간주하는 속도 경계
 
         # 스포츠 모드 파라미터
@@ -111,7 +109,7 @@ class VehicleModel:
         # 3. 기어에 따른 물리적 제약 적용
         if self.gear in ("P", "N"):
             a_cmd = 0.0
-            # P/N에서는 바퀴를 강제로 멈춤
+            # P/N에서는 바퀴를 강제로 멈춤 (계기판 0%로)
             if abs(self.wheel_speed) > 0.0:
                 self.wheel_speed -= math.copysign(min(abs(self.wheel_speed), 4.0 * dt), self.wheel_speed)
         elif self.gear == "R":
@@ -120,9 +118,11 @@ class VehicleModel:
         # 4. D 기어 데드존 및 크리프 처리
         if self.gear == "D" and abs(self.axis) < self.AXIS_DEADZONE:
             a_cmd = 0.0 # 데드존 내에서는 가속 명령 없음
-            # 크리프 시작 속도 이하일 때 크리프 현상 구현
-            if abs(self.wheel_speed) < self.CREEP_START_SPEED:
-                self.wheel_speed = clamp(self.wheel_speed + self.CREEP_A * dt, 0.0, self.CREEP_CAP)
+            # 크리프: 계기판 8% 이하일 때 크리프 현상 구현
+            current_speed_pct = abs(self.wheel_speed) * 100
+            if current_speed_pct < 8.0:  # 8% 이하에서 크리프 시작
+                creep_speed = 8.0 / 100.0  # 8%를 0.08로 변환
+                self.wheel_speed = clamp(self.wheel_speed + self.CREEP_A * dt, 0.0, creep_speed)
 
         # 5. 물리 저항(드래그) 계산
         v = self.wheel_speed

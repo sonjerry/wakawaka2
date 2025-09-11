@@ -19,7 +19,7 @@ STEER_SPEED_US_PER_S = 1000.0
 ESC_MIN_US      = 1000 # 일반적인 ESC 최소값
 ESC_NEUTRAL_US  = 1500 # 일반적인 ESC 중립값
 ESC_MAX_US      = 2000 # 일반적인 ESC 최대값
-ESC_TRIM_US     = -300    # ESC 트림 조정값
+ESC_TRIM_US     = -500    # ESC 트림 조정값
 
 # ESC 아밍을 위한 특별한 펄스값들
 ESC_ARM_MIN_US  = 1200  # 아밍 시 최소 펄스 (일부 ESC는 1100 필요)
