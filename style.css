@@ -68,7 +68,7 @@ h1 {
 
 .square {
   width: 100%;
-  aspect-ratio: 1 / 1;      /* 정사각형(네모) */
+  aspect-ratio: 1 / 1;      /* 네모(정사각형) */
   background: #000;
   border-radius: 12px;
   border: 1px solid var(--border);
@@ -78,9 +78,10 @@ h1 {
 video {
   width: 100%;
   height: 100%;
-  object-fit: contain;       /* 네모 안에 비율 유지 */
+  object-fit: contain;
   display: block;
 }
+
 .hint {
   color: var(--muted);
   font-size: 12px;

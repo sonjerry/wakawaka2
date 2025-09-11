@@ -12,20 +12,18 @@
 
     <div class="card">
       <div class="row">
-        <input id="whepUrl" type="text" value="http://localhost:8080/whep" />
+        <input id="whepUrl" type="text" placeholder="http://100.84.162.124:8080/whep" />
         <button id="startBtn">연결</button>
         <span id="status">대기</span>
       </div>
 
-      <!-- 정사각형(네모) 플레이어 -->
+      <!-- 네모(정사각형) 플레이어 -->
       <div class="square">
         <video id="video" playsinline autoplay muted></video>
       </div>
     </div>
 
-    <p class="hint">
-      WHEP 엔드포인트가 다르면 위 입력칸을 수정하세요. 예) <code>http://&lt;PI_IP&gt;:8080/whep</code>
-    </p>
+
   </main>
 
   <script src="./app.js"></script>
