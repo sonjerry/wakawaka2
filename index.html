@@ -1,19 +1,29 @@
-<!doctype html>
-<html lang="ko">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>WakaWaka</title>
-    <link rel="stylesheet" href="./style.css" />
-  </head>
-  <body>
-    <main id="app">
-      <h1>WakaWaka</h1>
-      <p>실시간 카메라 스트리밍(WebRTC)</p>
-      <video id="v" autoplay playsinline muted style="max-width:100%;border-radius:8px;border:2px solid var(--accent)"></video>
-    </main>
-    <script src="./app.js" defer></script>
-  </body>
-  </html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pi Camera Stream</title>
+</head>
+<body>
+    <video id="video" autoplay playsinline></video>
+    <script>
+        async function startStream() {
+            const pc = new RTCPeerConnection();
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
 
+            const response = await fetch('/offer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sdp: pc.localDescription.sdp, type: pc.localDescription.type })
+            });
+            const answer = await response.json();
+            await pc.setRemoteDescription(new RTCSessionDescription(answer));
 
+            pc.ontrack = event => {
+                document.getElementById('video').srcObject = event.streams[0];
+            };
+        }
+        startStream();
+    </script>
+</body>
+</html>

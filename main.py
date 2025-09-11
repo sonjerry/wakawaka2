@@ -1,58 +1,51 @@
-import time
-from typing import Dict
+import asyncio
+from quart import Quart, request, jsonify
+from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
+from aiortc.contrib.media import MediaPlayer
+from picamera2 import Picamera2
+from av import VideoFrame
+import cv2
 
-from quart import Quart, Response, jsonify, request, send_from_directory
-from aiortc import RTCPeerConnection, RTCSessionDescription  # type: ignore
+app = Quart(__name__)
+pcs = set()
 
-from config import load_config
-from hardware import Camera
-from webrtc import CameraVideoTrack
+class PiVideoTrack(VideoStreamTrack):
+    def __init__(self):
+        super().__init__()
+        self.camera = Picamera2()
+        self.camera.configure(self.camera.create_video_configuration(main={"size": (640, 480)}))
+        self.camera.start()
 
-def create_app() -> Quart:
-    config = load_config()
-    camera = Camera(config=config)
+    async def recv(self):
+        pts, time_base = await self.next_timestamp()
+        frame = self.camera.capture_array("main")
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        video_frame = VideoFrame.from_ndarray(frame, format="bgr24")
+        video_frame.pts = pts
+        video_frame.time_base = time_base
+        return video_frame
 
-    app = Quart(
-        __name__,
-        static_folder=".",
-        static_url_path="",
-    )
+@app.route('/offer', methods=['POST'])
+async def offer():
+    params = await request.get_json()
+    offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
-    @app.get("/")
-    async def root() -> Response:
-        return await send_from_directory(".", "index.html")
+    pc = RTCPeerConnection()
+    pcs.add(pc)
 
-    @app.post("/offer")
-    async def webrtc_offer() -> Response:
-        try:
-            offer = await request.get_json()
-            if not offer or "sdp" not in offer or "type" not in offer:
-                return jsonify({"error": "Invalid offer: 'sdp' or 'type' missing"}), 400
+    @pc.on("iceconnectionstatechange")
+    async def on_iceconnectionstatechange():
+        if pc.iceConnectionState == "failed":
+            await pc.close()
+            pcs.discard(pc)
 
-            # RTCSessionDescription에 sdp와 type을 명시적으로 전달
-            sdp = offer["sdp"]
-            offer_type = offer["type"]
-            if not isinstance(sdp, str) or not isinstance(offer_type, str):
-                return jsonify({"error": "Invalid offer: 'sdp' and 'type' must be strings"}), 400
+    await pc.setRemoteDescription(offer)
+    pc.addTrack(PiVideoTrack())
 
-            pc = RTCPeerConnection()
-            pc.addTrack(CameraVideoTrack(camera))
-            await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=offer_type))
-            answer = await pc.createAnswer()
-            await pc.setLocalDescription(answer)
-            return jsonify({"sdp": pc.localDescription.sdp, "type": pc.localDescription.type})
-        except Exception as e:
-            return jsonify({"error": f"Failed to process offer: {str(e)}"}), 500
+    answer = await pc.createAnswer()
+    await pc.setLocalDescription(answer)
 
-    return app
-
-def run() -> None:
-    app = create_app()
-    cfg = load_config()
-    host = cfg.get("stream", {}).get("host", "0.0.0.0")
-    port = int(cfg.get("stream", {}).get("port", 8000))
-    debug = bool(cfg.get("stream", {}).get("debug", False))
-    app.run(host=host, port=port, debug=debug)
+    return jsonify({"sdp": pc.localDescription.sdp, "type": pc.localDescription.type})
 
 if __name__ == "__main__":
-    run()
+    app.run(host="0.0.0.0", port=8080)
