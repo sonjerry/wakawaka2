@@ -25,21 +25,6 @@ ESC_TRIM_US     = 0    # ESC 트림 조정값
 ESC_ARM_MIN_US  = 1000 # 아밍 시 최소 펄스
 ESC_ARM_MAX_US  = 2000 # 아밍 시 최대 펄스
 
-# ESC 모델별 대안 설정 (주석 해제하여 사용)
-# BLHeli ESC (일반적인 드론 ESC)
-# ESC_ARM_MIN_US  = 1100
-# ESC_ARM_MAX_US  = 1900
-# ARM_NEUTRAL_S   = 3.0
-
-# SimonK ESC (고전적인 드론 ESC)
-# ESC_ARM_MIN_US  = 1000
-# ESC_ARM_MAX_US  = 2000
-# ARM_NEUTRAL_S   = 2.0
-
-# 일부 RC카 ESC
-# ESC_ARM_MIN_US  = 1000
-# ESC_ARM_MAX_US  = 2000
-# ARM_NEUTRAL_S   = 1.5
 
 # 논리 입력(-1..1)을 물리 ESC 펄스로 변환하기 위한 맵 (Micro ESC 최적화)
 ESC_DEADZONE_NORM   = 0.005  # |명령|<=0.5%면 진짜 중립 펄스 유지 (최소 데드존)

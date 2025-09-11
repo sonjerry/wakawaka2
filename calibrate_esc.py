@@ -1,72 +1,155 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 ESC 캘리브레이션 도구
-사용법: python calibrate_esc.py
+펄스 임계치를 1부터 3000까지 천천히 올려서 ESC의 반응을 확인합니다.
 """
 
-import asyncio
 import time
 import config
 import hardware
 
-async def calibrate_esc():
-    """ESC 캘리브레이션을 수행합니다."""
-    print("=== ESC 캘리브레이션 도구 ===")
-    print("주의: 바퀴를 지면에서 들어올리거나 차량을 안전하게 고정하세요!")
+def calibrate_esc():
+    """ESC 캘리브레이션 실행"""
+    print("=== ESC 캘리브레이션 시작 ===")
+    print("ESC가 연결되어 있는지 확인하세요.")
+    print("ESC의 비프음과 모터 반응을 주의깊게 관찰하세요.")
+    print("캘리브레이션 중에는 ESC를 만지지 마세요!")
     print()
     
-    # 하드웨어 상태 확인
-    print("하드웨어 라이브러리 상태 확인 중...")
-    print(f"hardware_present: {hardware.hardware_present}")
-    
-    if not hardware.hardware_present:
-        print("❌ 하드웨어 라이브러리가 설치되지 않았습니다!")
-        print("다음 명령어로 설치하세요:")
-        print("pip install adafruit-circuitpython-pca9685")
-        print("pip install adafruit-circuitpython-busio")
-        return
-    
     # 하드웨어 초기화
+    hardware.init()
+    
+    # 사용자 확인
+    input("준비가 되면 Enter를 누르세요...")
+    print()
+    
     try:
-        print("하드웨어 초기화 시도 중...")
-        hardware.init()
-        print("✅ 하드웨어 초기화 완료")
-        print(f"PCA9685 객체: {hardware.pca}")
+        # ESC 아밍 먼저 수행
+        print("1. ESC 아밍 중...")
+        import asyncio
+        asyncio.run(hardware.set_engine_enabled_async(True))
+        print("ESC 아밍 완료!")
+        print()
+        
+        # 펄스 범위 설정
+        min_pulse = 1
+        max_pulse = 3000
+        step = 1
+        delay = 0.1  # 각 단계마다 0.1초 대기
+        
+        print(f"2. 펄스 캘리브레이션 시작 ({min_pulse}us ~ {max_pulse}us)")
+        print(f"   단계: {step}us, 지연: {delay}초")
+        print("   ESC의 반응을 주의깊게 관찰하세요!")
+        print()
+        
+        # 펄스를 천천히 올리기
+        for pulse_us in range(min_pulse, max_pulse + 1, step):
+            # ESC에 펄스 전송
+            duty = hardware._us_to_duty(pulse_us)
+            if hardware.hardware_present and hardware.pca is not None:
+                hardware.pca.channels[config.CH_ESC].duty_cycle = duty
+            
+            # 진행 상황 표시 (100us마다)
+            if pulse_us % 100 == 0:
+                print(f"펄스: {pulse_us:4d}us (듀티: {duty:5d})", end="\r")
+            
+            # 잠시 대기
+            time.sleep(delay)
+        
+        print(f"\n펄스: {max_pulse:4d}us (듀티: {hardware._us_to_duty(max_pulse):5d})")
+        print()
+        
+        # 최대 펄스에서 잠시 대기
+        print("3. 최대 펄스에서 3초 대기...")
+        time.sleep(3)
+        
+        # 펄스를 천천히 내리기
+        print("4. 펄스를 천천히 내리는 중...")
+        for pulse_us in range(max_pulse, min_pulse - 1, -step):
+            duty = hardware._us_to_duty(pulse_us)
+            if hardware.hardware_present and hardware.pca is not None:
+                hardware.pca.channels[config.CH_ESC].duty_cycle = duty
+            
+            # 진행 상황 표시 (100us마다)
+            if pulse_us % 100 == 0:
+                print(f"펄스: {pulse_us:4d}us (듀티: {duty:5d})", end="\r")
+            
+            time.sleep(delay)
+        
+        print(f"\n펄스: {min_pulse:4d}us (듀티: {hardware._us_to_duty(min_pulse):5d})")
+        print()
+        
+        # 중립 펄스로 설정
+        print("5. 중립 펄스로 설정...")
+        neutral_duty = hardware._us_to_duty(config.ESC_NEUTRAL_US)
+        if hardware.hardware_present and hardware.pca is not None:
+            hardware.pca.channels[config.CH_ESC].duty_cycle = neutral_duty
+        print(f"중립 펄스: {config.ESC_NEUTRAL_US}us (듀티: {neutral_duty})")
+        
+        print()
+        print("=== ESC 캘리브레이션 완료 ===")
+        print("관찰한 내용을 바탕으로 config.py의 ESC 설정값을 조정하세요:")
+        print(f"  ESC_MIN_US = {config.ESC_MIN_US}  # 최소 펄스 (후진/브레이크)")
+        print(f"  ESC_NEUTRAL_US = {config.ESC_NEUTRAL_US}  # 중립 펄스 (정지)")
+        print(f"  ESC_MAX_US = {config.ESC_MAX_US}  # 최대 펄스 (전진)")
+        
+    except KeyboardInterrupt:
+        print("\n\n캘리브레이션이 중단되었습니다.")
     except Exception as e:
-        print(f"❌ 하드웨어 초기화 실패: {e}")
-        print("I2C 연결을 확인하세요 (SCL, SDA 핀)")
-        return
+        print(f"\n오류 발생: {e}")
+    finally:
+        # 안전 상태로 복원
+        print("\n안전 상태로 복원 중...")
+        hardware.set_safe_state()
+        hardware.shutdown()
+        print("완료!")
+
+def quick_test():
+    """빠른 테스트 - 주요 펄스값들만 테스트"""
+    print("=== ESC 빠른 테스트 ===")
+    print("주요 펄스값들을 테스트합니다.")
+    print()
     
-    print("\n1. ESC를 완전히 끄기...")
-    hardware.set_safe_state()
-    await asyncio.sleep(1.0)
+    hardware.init()
     
-    print("2. 최대값(2000us)으로 설정...")
-    max_duty = hardware._us_to_duty(2000)
-    hardware.pca.channels[config.CH_ESC].duty_cycle = max_duty
-    print("   ESC에 전원을 켜세요! (3초 대기)")
-    await asyncio.sleep(3.0)
-    
-    print("3. 최소값(1000us)으로 설정...")
-    min_duty = hardware._us_to_duty(1000)
-    hardware.pca.channels[config.CH_ESC].duty_cycle = min_duty
-    print("   ESC가 비프음으로 캘리브레이션 완료를 알릴 것입니다 (3초 대기)")
-    await asyncio.sleep(3.0)
-    
-    print("4. 중립값(1500us)으로 설정...")
-    neutral_duty = hardware._us_to_duty(1500)
-    hardware.pca.channels[config.CH_ESC].duty_cycle = neutral_duty
-    print("   모터가 정지 상태인지 확인하세요")
-    await asyncio.sleep(2.0)
-    
-    print("\n=== 캘리브레이션 완료 ===")
-    print("모터가 정지하지 않는다면 config.py의 ESC_TRIM_US 값을 조정하세요:")
-    print("- 모터가 천천히 전진한다면: ESC_TRIM_US = -50 ~ -200")
-    print("- 모터가 천천히 후진한다면: ESC_TRIM_US = 50 ~ 200")
-    
-    # 정리
-    hardware.set_safe_state()
-    hardware.shutdown()
+    try:
+        # ESC 아밍
+        print("ESC 아밍 중...")
+        import asyncio
+        asyncio.run(hardware.set_engine_enabled_async(True))
+        print("아밍 완료!")
+        print()
+        
+        # 테스트할 펄스값들
+        test_pulses = [1000, 1200, 1500, 1800, 2000]
+        
+        for pulse_us in test_pulses:
+            print(f"펄스 {pulse_us}us 테스트 중... (3초)")
+            duty = hardware._us_to_duty(pulse_us)
+            if hardware.hardware_present and hardware.pca is not None:
+                hardware.pca.channels[config.CH_ESC].duty_cycle = duty
+            time.sleep(3)
+        
+        print("테스트 완료!")
+        
+    except KeyboardInterrupt:
+        print("\n테스트가 중단되었습니다.")
+    finally:
+        hardware.set_safe_state()
+        hardware.shutdown()
 
 if __name__ == "__main__":
-    asyncio.run(calibrate_esc())
+    print("ESC 캘리브레이션 도구")
+    print("1. 전체 캘리브레이션 (1us ~ 3000us)")
+    print("2. 빠른 테스트 (주요 펄스값들만)")
+    print()
+    
+    choice = input("선택하세요 (1 또는 2): ").strip()
+    
+    if choice == "1":
+        calibrate_esc()
+    elif choice == "2":
+        quick_test()
+    else:
+        print("잘못된 선택입니다.")
