@@ -17,13 +17,13 @@ STEER_SPEED_US_PER_S = 1000.0
 
 # ESC 펄스 임계치 (크리프 현상 포함)
 ESC_MIN_US      = 1600 # ESC 최소값 (후진/브레이크)
-ESC_NEUTRAL_US  = 1800 # ESC 중립값 (크리프 - 8% 속도)
+ESC_NEUTRAL_US  = 1850 # ESC 중립값 (크리프 - 8% 속도)
 ESC_MAX_US      = 2000 # ESC 최대값 (전진 - 최대 속도)
 ESC_TRIM_US     = 0    # ESC 트림 조정값
 
 # ESC 아밍을 위한 특별한 펄스값들
-ESC_ARM_MIN_US  = 1600 # 아밍 시 최소 펄스
-ESC_ARM_MAX_US  = 2000 # 아밍 시 최대 펄스
+ESC_ARM_MIN_US  = 1800 # 아밍 시 최소 펄스
+ESC_ARM_MAX_US  = 2200 # 아밍 시 최대 펄스
 
 
 # 논리 입력(-1..1)을 물리 ESC 펄스로 변환하기 위한 맵 (Micro ESC 최적화)
