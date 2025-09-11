@@ -9,7 +9,7 @@ const startStreaming = async () => {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    const response = await fetch('http://localhost:8080/offer', {
+    const response = await fetch('http://http://100.84.162.124:8080//offer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sdp: offer.sdp, type: offer.type })
