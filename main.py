@@ -2,12 +2,11 @@ import time
 from typing import Generator, Dict
 
 from quart import Quart, Response, jsonify, request, send_from_directory
+from aiortc import RTCPeerConnection, RTCSessionDescription  # type: ignore
 
 from config import load_config
 from hardware import Camera
 from webrtc import CameraVideoTrack
-from aiortc import RTCPeerConnection  # type: ignore
-
 
 def create_app() -> Quart:
     config = load_config()
@@ -32,19 +31,29 @@ def create_app() -> Quart:
     async def root() -> Response:
         return await send_from_directory(".", "index.html")
 
-    # MJPEG는 유지하지 않고, WebRTC 시그널링 엔드포인트만 노출
     @app.post("/offer")
     async def webrtc_offer() -> Response:
-        offer = await request.get_json()
-        pc = RTCPeerConnection()
-        pc.addTrack(CameraVideoTrack(camera))
-        await pc.setRemoteDescription(offer)
-        answer = await pc.createAnswer()
-        await pc.setLocalDescription(answer)
-        return jsonify({"sdp": pc.localDescription.sdp, "type": pc.localDescription.type})
+        try:
+            offer = await request.get_json()
+            if not offer or "sdp" not in offer or "type" not in offer:
+                return jsonify({"error": "Invalid offer: 'sdp' or 'type' missing"}), 400
+
+            # RTCSessionDescription에 sdp와 type을 명시적으로 전달
+            sdp = offer["sdp"]
+            offer_type = offer["type"]
+            if not isinstance(sdp, str) or not isinstance(offer_type, str):
+                return jsonify({"error": "Invalid offer: 'sdp' and 'type' must be strings"}), 400
+
+            pc = RTCPeerConnection()
+            pc.addTrack(CameraVideoTrack(camera))
+            await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=offer_type))
+            answer = await pc.createAnswer()
+            await pc.setLocalDescription(answer)
+            return jsonify({"sdp": pc.localDescription.sdp, "type": pc.localDescription.type})
+        except Exception as e:
+            return jsonify({"error": f"Failed to process offer: {str(e)}"}), 500
 
     return app
-
 
 def run() -> None:
     app = create_app()
@@ -54,8 +63,5 @@ def run() -> None:
     debug = bool(cfg.get("stream", {}).get("debug", False))
     app.run(host=host, port=port, debug=debug)
 
-
 if __name__ == "__main__":
     run()
-
-
