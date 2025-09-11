@@ -1,9 +1,11 @@
 import asyncio
 from quart import Quart, request, jsonify
+from quart_cors import cors
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaPlayer
 
 app = Quart(__name__)
+app = cors(app, allow_origin="*")
 pcs = set()
 
 @app.route('/offer', methods=['POST'])
