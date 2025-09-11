@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pi WebRTC (WHEP) 뷰어</title>
-  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <main class="wrap">
@@ -12,7 +12,6 @@
 
     <div class="card">
       <div class="row">
-        <input id="whepUrl" type="text" placeholder="http://100.84.162.124:8080/whep" />
         <button id="startBtn">연결</button>
         <span id="status">대기</span>
       </div>
@@ -23,9 +22,9 @@
       </div>
     </div>
 
-
+    <p class="hint">이 페이지와 스트림은 모두 이 라즈베리파이에서 제공됩니다. (동일 출처 <code>/whep</code>)</p>
   </main>
 
-  <script src="./app.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>
