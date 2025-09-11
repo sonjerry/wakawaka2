@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 control_commands = queue.Queue()
 current_status = {
     'connected': False,
-    'video_resolution': '1280x720',
-    'fps': 30,
+    'video_resolution': '854x480',
+    'fps': 24,
     'latency': 0,
     'bitrate': 3000000
 }

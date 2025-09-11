@@ -1,21 +1,4 @@
-#!/bin/bash
 
-# FFmpeg 및 MediaMTX 설치
-echo "필요한 패키지 설치 중..."
-sudo apt update
-sudo apt install -y ffmpeg
-
-# MediaMTX 다운로드 및 설치
-echo "MediaMTX 설치 중..."
-wget https://github.com/bluenviron/mediamtx/releases/download/v1.14.0/mediamtx_v1.14.0_linux_arm64v8.tar.gz
-tar -xzf mediamtx_v1.14.0_linux_arm64v8.tar.gz
-sudo mv mediamtx /usr/local/bin/
-sudo chmod +x /usr/local/bin/mediamtx
-rm mediamtx_v1.14.0_linux_arm64v8.tar.gz
-
-# Python 의존성 설치
-echo "Python 의존성 설치 중..."
-pip3 install -r requirements.txt
 
 # 카메라 권한 설정
 sudo usermod -a -G video $USER
