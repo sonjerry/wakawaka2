@@ -76,7 +76,10 @@
       reconnectDelay = Math.min(reconnectDelay * 2, 30000); // Exponential backoff
     };
 
-    ws.onmessage = (ev) => handleServerMessage(ev.data);
+    ws.onmessage = (ev) => {
+      console.log("서버 메시지 수신:", ev.data);
+      handleServerMessage(ev.data);
+    };
   }
 
   function send(data) {

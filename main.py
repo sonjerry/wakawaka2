@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -113,14 +114,17 @@ async def tick_loop():
             snap = vehicle.get_state_snapshot(inputs)
             try:
                 await controller.send_text(json.dumps(snap))
+                # 주기적으로 상태 로그 출력 (5초마다)
+                if int(time.time()) % 5 == 0:
+                    logging.info(f"상태 전송: RPM={snap.get('virtual_rpm', 0):.2f}, Speed={snap.get('speed_pct', 0)}%, Gear={snap.get('gear', 'P')}, Engine={snap.get('engine_running', False)}")
             except WebSocketDisconnect:
                 # 연결이 끊어진 경우를 대비하여 명시적으로 처리
                 app.state.controller = None
                 logging.info("데이터 전송 중 클라이언트 연결 끊김 감지.")
-            except Exception:
+            except Exception as e:
                 # 기타 예외 상황 처리
                 app.state.controller = None
-                logging.warning("데이터 전송 중 오류 발생, 클라이언트 연결을 종료합니다.")
+                logging.warning(f"데이터 전송 중 오류 발생: {e}")
 
 
         await asyncio.sleep(dt)

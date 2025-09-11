@@ -141,7 +141,7 @@ class VehicleModel:
         self._update_virtual_gear_anti_hunting()
         self._update_virtual_rpm(dt, a_cmd)
 
-    def get_state_snapshot(self) -> dict:
+    def get_state_snapshot(self, inputs: dict = None) -> dict:
         """웹 클라이언트에 보낼 현재 상태 딕셔너리를 반환합니다."""
         return {
             "virtual_rpm": clamp(self.virtual_rpm, 0.0, 1.0),
@@ -153,7 +153,7 @@ class VehicleModel:
             "sport_mode_on": self.sport_mode_on,
         }
 
-    def get_hardware_outputs(self) -> dict:
+    def get_hardware_outputs(self, inputs: dict = None) -> dict:
         """실제 하드웨어로 보낼 제어값 딕셔너리를 반환합니다."""
         braking = self.axis <= -self.AXIS_DEADZONE
         is_moving = self.gear in ('D', 'R')
