@@ -1,6 +1,60 @@
 <!doctype html>
 <html lang="ko">
 <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WHEP Viewer - WakaWaka</title>
+  <link rel="stylesheet" href="styles.css">
+  <meta http-equiv="Permissions-Policy" content="autoplay=(self)">
+</head>
+<body>
+  <main class="container">
+    <h1>WHEP Viewer</h1>
+    <form id="form" class="controls" autocomplete="off">
+      <label for="whepUrl">WHEP URL</label>
+      <input id="whepUrl" name="whepUrl" type="text" placeholder="http://<PI_IP>:8080/whep" required>
+      <div class="buttons">
+        <button id="connect" type="submit">Connect</button>
+        <button id="disconnect" type="button" disabled>Disconnect</button>
+        <button id="fullscreen" type="button" disabled>Fullscreen</button>
+      </div>
+    </form>
+
+    <div class="player">
+      <video id="video" playsinline muted autoplay></video>
+    </div>
+
+    <p class="hint">예: http://raspberrypi:8080/whep 또는 http://100.x.y.z:8080/whep (Tailscale)</p>
+  </main>
+
+  <script src="whep.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const ui = buildUI({
+        videoEl: document.getElementById('video'),
+        urlInput: document.getElementById('whepUrl'),
+        form: document.getElementById('form'),
+        connectBtn: document.getElementById('connect'),
+        disconnectBtn: document.getElementById('disconnect'),
+        fullscreenBtn: document.getElementById('fullscreen'),
+      });
+
+      // Query params: ?whep=<url>&autoplay=1
+      const params = new URLSearchParams(location.search);
+      const preUrl = params.get('whep');
+      const doAuto = params.get('autoplay') === '1';
+      if (preUrl) {
+        ui.urlInput.value = preUrl;
+        if (doAuto) ui.connect();
+      }
+    });
+  </script>
+  </body>
+  </html>
+
+<!doctype html>
+<html lang="ko">
+<head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pi WebRTC (WHEP) 뷰어</title>
