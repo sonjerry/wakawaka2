@@ -5,7 +5,7 @@ from typing import Generator, Literal
 from flask import Flask, Response, send_from_directory
 
 from config import load_config
-from hardware import OpenCVCamera
+from hardware import Camera
 from simulate import SimulatedCamera
 
 
@@ -13,7 +13,7 @@ def create_app(mode: Literal["hardware", "simulate"]) -> Flask:
     config = load_config()
 
     if mode == "hardware":
-        camera = OpenCVCamera(config=config)
+        camera = Camera(config=config)
     else:
         camera = SimulatedCamera(config=config)
 

@@ -1,29 +1,54 @@
 from typing import Any, Dict, Optional
 
 try:
+    from picamera2 import Picamera2  # type: ignore
+except Exception:  # pragma: no cover
+    Picamera2 = None  # type: ignore
+
+try:
     import cv2  # type: ignore
 except Exception:  # pragma: no cover
     cv2 = None  # type: ignore
 
+try:
+    from PIL import Image  # type: ignore
+except Exception:  # pragma: no cover
+    Image = None  # type: ignore
 
-class OpenCVCamera:
-    """라즈베리파이 카메라 또는 USB 카메라를 OpenCV로 읽어 MJPEG 프레임을 제공."""
+
+class Camera:
+    """라즈베리파이5 전용 포트 카메라: Picamera2 우선, 불가 시 OpenCV 폴백."""
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.cap: Optional["cv2.VideoCapture"] = None
+        self._mode: str = ""
+        self._picam: Optional["Picamera2"] = None
+        self._cap: Optional["cv2.VideoCapture"] = None
         self._open()
 
     def _open(self) -> None:
-        if cv2 is None:
-            raise RuntimeError("OpenCV(cv2)가 설치되어 있지 않습니다. 'pip install opencv-python' 필요")
         cam_cfg = self.config.get("camera", {})
-        index = int(cam_cfg.get("index", 0))
         width = int(cam_cfg.get("width", 640))
         height = int(cam_cfg.get("height", 480))
         fps = int(cam_cfg.get("fps", 30))
 
-        # V4L2 백엔드 사용(라즈베리파이 권장) + MJPG FOURCC 설정
+        # 1) Picamera2 (권장: Pi5 libcamera 스택)
+        if Picamera2 is not None:
+            try:
+                picam = Picamera2()
+                cfg = picam.create_preview_configuration(main={"size": (width, height)})
+                picam.configure(cfg)
+                picam.start()
+                self._picam = picam
+                self._mode = "picamera2"
+                return
+            except Exception:
+                self._picam = None
+
+        # 2) OpenCV V4L2 폴백
+        if cv2 is None:
+            raise RuntimeError("카메라 초기화 실패: Picamera2 또는 OpenCV 중 하나가 필요합니다.")
+        index = int(cam_cfg.get("index", 0))
         cap = cv2.VideoCapture(index, cv2.CAP_V4L2)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -32,22 +57,48 @@ class OpenCVCamera:
             cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
         except Exception:
             pass
-        self.cap = cap
+        self._cap = cap
+        self._mode = "opencv"
 
     def read_jpeg(self) -> Optional[bytes]:
-        assert self.cap is not None
-        ok, frame = self.cap.read()
-        if not ok:
-            return None
-        ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-        if not ok:
-            return None
-        return buf.tobytes()
+        # Picamera2 경로: numpy 배열을 얻어 JPEG 인코딩
+        if self._mode == "picamera2" and self._picam is not None:
+            try:
+                arr = self._picam.capture_array()
+                if cv2 is not None:
+                    ok, buf = cv2.imencode(".jpg", arr, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                    return buf.tobytes() if ok else None
+                if Image is not None:
+                    from PIL import Image as PILImage  # type: ignore
+                    import io
+
+                    img = PILImage.fromarray(arr)
+                    bio = io.BytesIO()
+                    img.save(bio, format="JPEG", quality=80)
+                    return bio.getvalue()
+                return None
+            except Exception:
+                return None
+
+        # OpenCV 경로
+        if self._mode == "opencv" and self._cap is not None and cv2 is not None:
+            ok, frame = self._cap.read()
+            if not ok:
+                return None
+            ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+            return buf.tobytes() if ok else None
+
+        return None
 
     def __del__(self) -> None:  # pragma: no cover
         try:
-            if self.cap is not None:
-                self.cap.release()
+            if self._picam is not None:
+                self._picam.stop()
+        except Exception:
+            pass
+        try:
+            if self._cap is not None:
+                self._cap.release()
         except Exception:
             pass
 
