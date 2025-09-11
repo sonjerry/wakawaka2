@@ -140,13 +140,37 @@
   window.addEventListener("keydown", (e) => {
     const key = e.key.toLowerCase();
     keyState[key] = true;
+    
+    // ESC 키 처리 (엔진 정지)
+    if (key === "escape") {
+      if (state.engine_running) {
+        DOMElements.btnEngine.click();
+      }
+      return;
+    }
+    
     // 단축키 처리
     if ("prnd".includes(key)) send({ gear: key.toUpperCase() });
     if (key === "h") DOMElements.btnHead.click();
     if (key === "e") DOMElements.btnEngine.click();
     if (key === "m") DOMElements.btnSport.click();
+    
+    // 브레이크 키 (스페이스바) 처리
+    if (key === " ") {
+      e.preventDefault(); // 스크롤 방지
+      send({ brake: true });
+    }
   });
-  window.addEventListener("keyup", (e) => { keyState[e.key.toLowerCase()] = false; });
+  window.addEventListener("keyup", (e) => { 
+    const key = e.key.toLowerCase();
+    keyState[key] = false;
+    
+    // 브레이크 키 해제
+    if (key === " ") {
+      e.preventDefault();
+      send({ brake: false });
+    }
+  });
 
   // ==== 6. 메인 루프 (입력 계산 및 서버 전송) ====
   let lastTimestamp = 0;
@@ -196,6 +220,11 @@
     if (prev.head_on !== state.head_on) DOMElements.btnHead.classList.toggle("on", state.head_on);
     if (prev.sport_mode_on !== state.sport_mode_on) updateSportMode();
     if (prev.axis !== state.axis) updateAxisBar();
+    
+    // 엔진 상태가 변경된 경우 클러스터 전원 상태 동기화
+    if (prev.engine_running !== state.engine_running) {
+      setClusterPower(state.engine_running);
+    }
     
     if (state.shift_fail) {
       DOMElements.gearIndicator.classList.add("error");

@@ -50,7 +50,7 @@ body.sport-mode-active {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 1rem; /* 비디오 주변에 약간의 여백 추가 */
+  padding: 0; /* 여백 제거 */
   min-height: 0; /* flex 아이템이 수축할 수 있도록 허용 */
 }
 
@@ -58,9 +58,7 @@ body.sport-mode-active {
   /* [수정] 원본 비디오 비율(16:9)을 유지하면서 컨테이너에 맞게 조절 */
   display: block;
   width: 100%;
-  max-width: 1600px; /* 비디오가 너무 커지는 것을 방지 */
-  max-height: 100%;
-  aspect-ratio: 16 / 9;
+  height: 100%; /* 높이를 100%로 설정하여 여백 없이 채움 */
   border: 0;
   background: #050505;
 }
@@ -104,6 +102,13 @@ body.sport-mode-active {
 .bottom-right-controls {
   align-items: flex-end;
   min-width: 150px;
+}
+
+.gear-input-container {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  align-items: flex-end;
 }
 
 .center-info {
@@ -169,6 +174,31 @@ body.sport-mode-active .card {
 .gear-btn.active {
   background: var(--ice);
   color: #000;
+}
+
+/* 기어별 색상 설정 */
+.gear-btn[data-gear="P"].active {
+  background: #ff3030;
+  color: #fff;
+  box-shadow: 0 0 15px #ff3030;
+}
+
+.gear-btn[data-gear="R"].active {
+  background: #ff3030;
+  color: #fff;
+  box-shadow: 0 0 15px #ff3030;
+}
+
+.gear-btn[data-gear="N"].active {
+  background: #ffd700;
+  color: #000;
+  box-shadow: 0 0 15px #ffd700;
+}
+
+.gear-btn[data-gear="D"].active {
+  background: #0066ff;
+  color: #fff;
+  box-shadow: 0 0 15px #0066ff;
 }
 
 .control-btn.on {

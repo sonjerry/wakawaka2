@@ -95,7 +95,7 @@ def esc_from_norm(x: float) -> int:
 async def set_engine_enabled_async(on: bool):
     """
     엔진 상태에 맞춰 ESC 채널 제어 (비동기).
-    - True : 아밍 절차 수행 (중립 PWM을 ARM_NEUTRAL_S 동안 유지)
+    - True : 표준 ESC 아밍 절차 수행
     - False: ESC 채널 FULL-OFF (무음)
     """
     global engine_enabled
@@ -107,19 +107,40 @@ async def set_engine_enabled_async(on: bool):
         return
 
     if on:
-        # 1) 중립 펄스 출력
+        print("ESC 아밍 시작...")
+        
+        # 1) ESC를 완전히 끄기 (0% duty cycle)
+        pca.channels[config.CH_ESC].duty_cycle = 0
+        await asyncio.sleep(0.1)
+        
+        # 2) 최대 펄스로 아밍 신호 전송
+        max_duty = _us_to_duty(getattr(config, "ESC_ARM_MAX_US", config.ESC_MAX_US))
+        pca.channels[config.CH_ESC].duty_cycle = max_duty
+        await asyncio.sleep(getattr(config, "ARM_SEQUENCE_S", 0.5))
+        
+        # 3) 최소 펄스로 아밍 신호 전송
+        min_duty = _us_to_duty(getattr(config, "ESC_ARM_MIN_US", config.ESC_MIN_US))
+        pca.channels[config.CH_ESC].duty_cycle = min_duty
+        await asyncio.sleep(getattr(config, "ARM_SEQUENCE_S", 0.5))
+        
+        # 4) 중립 펄스로 설정하고 아밍 완료 대기
         neu = _us_to_duty(config.ESC_NEUTRAL_US + config.ESC_TRIM_US)
         pca.channels[config.CH_ESC].duty_cycle = neu
-        # 2) 규정된 아밍 시간 대기
-        await asyncio.sleep(max(0.0, float(getattr(config, "ARM_NEUTRAL_S", 1.8))))
-        # 3) 플래그
+        print(f"ESC 중립 펄스 유지 중... ({getattr(config, 'ARM_NEUTRAL_S', 2.0)}초)")
+        await asyncio.sleep(max(0.0, float(getattr(config, "ARM_NEUTRAL_S", 2.0))))
+        
+        # 5) 아밍 완료
         engine_enabled = True
-        # 4) 안전: 중립 재주입
+        print("ESC 아밍 완료! 비프음이 들려야 합니다.")
+        
+        # 6) 안전: 중립 재주입
         pca.channels[config.CH_ESC].duty_cycle = neu
     else:
+        print("ESC 디스아밍...")
         # 디스암: ESC 채널 FULL-OFF (무음)
         pca.channels[config.CH_ESC].duty_cycle = 0
         engine_enabled = False
+        print("ESC 디스아밍 완료.")
 
 def set_steering(pulse_us: int):
     """조향 서보 제어"""
