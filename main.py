@@ -55,8 +55,8 @@ async def health():
 
 def _is_braking_now() -> bool:
     """
-    [개선] 현재 사용자가 브레이크를 밟고 있는지 판단합니다.
-    config 파일의 데드존 설정을 직접 참조하여 일관성을 유지합니다.
+    현재 사용자가 브레이크를 밟고 있는지 판단합니다.
+    axis 값이 -5 이하면 브레이크로 판단합니다.
     """
     return app.state.axis <= -config.AXIS_DEADZONE_UNITS
 
@@ -127,7 +127,10 @@ async def tick_loop():
 
 @app.websocket("/ws")
 async def ws_handler(ws: WebSocket):
+    logging.info("🔌 웹소켓 연결 요청 수신")
     await ws.accept()
+    logging.info("✅ 웹소켓 연결 승인 완료")
+    
     # 새로운 클라이언트가 연결되면 기존 연결은 종료 (싱글 컨트롤러 정책)
     if app.state.controller:
         logging.warning("새로운 클라이언트 접속, 기존 연결을 종료합니다.")
@@ -136,7 +139,7 @@ async def ws_handler(ws: WebSocket):
         except Exception:
             pass # 이미 닫혔을 수 있음
     app.state.controller = ws
-    logging.info("웹소켓 클라이언트가 연결되었습니다.")
+    logging.info("🎮 웹소켓 클라이언트가 연결되었습니다.")
     
     try:
         while True:

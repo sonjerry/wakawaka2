@@ -155,22 +155,8 @@
     if (key === "e") DOMElements.btnEngine.click();
     if (key === "m") DOMElements.btnSport.click();
     
-    // 브레이크 키 (스페이스바) 처리
-    if (key === " ") {
-      e.preventDefault(); // 스크롤 방지
-      send({ brake: true });
-    }
   });
-  window.addEventListener("keyup", (e) => { 
-    const key = e.key.toLowerCase();
-    keyState[key] = false;
-    
-    // 브레이크 키 해제
-    if (key === " ") {
-      e.preventDefault();
-      send({ brake: false });
-    }
-  });
+  window.addEventListener("keyup", (e) => { keyState[e.key.toLowerCase()] = false; });
 
   // ==== 6. 메인 루프 (입력 계산 및 서버 전송) ====
   let lastTimestamp = 0;
