@@ -1,10 +1,13 @@
 import time
 from typing import Generator
 
-from flask import Flask, Response, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory
 
 from config import load_config
 from hardware import Camera
+from webrtc import CameraVideoTrack
+from aiortc import RTCPeerConnection  # type: ignore
+from aiortc.contrib.signaling import BYE  # type: ignore
 
 
 def create_app() -> Flask:
@@ -30,12 +33,23 @@ def create_app() -> Flask:
     def root() -> Response:
         return send_from_directory(".", "index.html")
 
-    @app.get("/stream.mjpg")
-    def stream() -> Response:
-        return Response(
-            mjpeg_generator(),
-            mimetype="multipart/x-mixed-replace; boundary=frame",
-        )
+    # MJPEG는 유지하지 않고, WebRTC 시그널링 엔드포인트만 노출
+    @app.post("/offer")
+    def webrtc_offer() -> Response:
+        offer = request.get_json(force=True)
+        pc = RTCPeerConnection()
+        pc.addTrack(CameraVideoTrack(config))
+
+        async def run() -> Dict[str, str]:
+            await pc.setRemoteDescription(offer)
+            answer = await pc.createAnswer()
+            await pc.setLocalDescription(answer)
+            return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
+
+        import asyncio
+
+        result = asyncio.get_event_loop().run_until_complete(run())
+        return jsonify(result)
 
     return app
 
