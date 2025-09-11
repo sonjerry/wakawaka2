@@ -15,15 +15,15 @@ STEER_RIGHT_US  = 2400
 STEER_CENTER_US = 1800
 STEER_SPEED_US_PER_S = 1000.0
 
-# ESC 펄스 임계치 (대부분 1000/1500/2000µs)
-ESC_MIN_US      = 5000 # 일반적인 ESC 최소값
-ESC_NEUTRAL_US  = 900 # 일반적인 ESC 중립값
-ESC_MAX_US      = 1200 # 일반적인 ESC 최대값
-ESC_TRIM_US     =  0    # ESC 트림 조정값
+# ESC 펄스 임계치 (Micro ESC 20A/30A 표준 범위)
+ESC_MIN_US      = 1000 # Micro ESC 최소값 (후진/브레이크)
+ESC_NEUTRAL_US  = 1500 # Micro ESC 중립값 (정지)
+ESC_MAX_US      = 2000 # Micro ESC 최대값 (전진)
+ESC_TRIM_US     = 0    # ESC 트림 조정값
 
 # ESC 아밍을 위한 특별한 펄스값들
-ESC_ARM_MIN_US  = 300  # 아밍 시 최소 펄스 (일부 ESC는 1100 필요)
-ESC_ARM_MAX_US  = 900  # 아밍 시 최대 펄스 (일부 ESC는 1900 필요)
+ESC_ARM_MIN_US  = 1000 # 아밍 시 최소 펄스
+ESC_ARM_MAX_US  = 2000 # 아밍 시 최대 펄스
 
 # ESC 모델별 대안 설정 (주석 해제하여 사용)
 # BLHeli ESC (일반적인 드론 ESC)
@@ -41,10 +41,10 @@ ESC_ARM_MAX_US  = 900  # 아밍 시 최대 펄스 (일부 ESC는 1900 필요)
 # ESC_ARM_MAX_US  = 2000
 # ARM_NEUTRAL_S   = 1.5
 
-# 논리 입력(-1..1)을 물리 ESC 펄스로 변환하기 위한 맵
-ESC_DEADZONE_NORM   = 0.01   # |명령|<=1%면 진짜 중립 펄스 유지
-ESC_FWD_START_NORM  = 0.02   # 전진 시작 임계 (더 낮게 조정)
-ESC_REV_START_NORM  = 0.02   # 후진 시작 임계 (더 낮게 조정)
+# 논리 입력(-1..1)을 물리 ESC 펄스로 변환하기 위한 맵 (Micro ESC 최적화)
+ESC_DEADZONE_NORM   = 0.05   # |명령|<=5%면 진짜 중립 펄스 유지 (Micro ESC 안정성)
+ESC_FWD_START_NORM  = 0.08   # 전진 시작 임계 (크리핑과 연동)
+ESC_REV_START_NORM  = 0.08   # 후진 시작 임계 (크리핑과 연동)
 
 # ==== 3. 시뮬레이션 및 엔진/변속 설정 ====
 TICK_S          = 0.01       # 시뮬레이션/제어 루프 주기
