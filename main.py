@@ -1,12 +1,22 @@
 import asyncio
-from quart import Quart, request, jsonify
+from quart import Quart, request, jsonify, send_from_directory
 from quart_cors import cors
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaPlayer
+import os
 
 app = Quart(__name__)
 app = cors(app, allow_origin="*")
 pcs = set()
+
+# 정적 파일 디렉토리 설정
+@app.route('/')
+async def index():
+    return await send_from_directory('static', 'index.html')
+
+@app.route('/<path:path>')
+async def static_files(path):
+    return await send_from_directory('static', path)
 
 @app.route('/offer', methods=['POST'])
 async def offer():
