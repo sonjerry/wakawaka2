@@ -74,11 +74,15 @@ def start_ffmpeg_stream():
         ffmpeg_cmd = [
             'ffmpeg',
             '-f', 'v4l2',  # Video4Linux2 입력
-            '-input_format', 'h264',  # H.264 입력
             '-video_size', '1280x720',
             '-framerate', '30',
             '-i', '/dev/video0',  # 카메라 장치
-            '-c:v', 'copy',  # 비디오 코덱 복사 (재인코딩 없음)
+            '-c:v', 'libx264',  # H.264 인코딩
+            '-preset', 'ultrafast',
+            '-tune', 'zerolatency',
+            '-b:v', '3M',
+            '-maxrate', '3M',
+            '-bufsize', '6M',
             '-f', 'flv',  # FLV 출력 포맷
             'rtmp://localhost:1935/live/stream'  # MediaMTX RTMP 엔드포인트
         ]

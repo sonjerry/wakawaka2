@@ -22,5 +22,6 @@ echo "카메라 장치 확인됨: /dev/video0"
 echo "MediaMTX 서버 연결 확인됨"
 echo "FFmpeg 스트림 시작 중..."
 
-# FFmpeg 명령어 실행
-ffmpeg -f v4l2 -input_format h264 -video_size 1280x720 -framerate 30 -i /dev/video0 -c:v copy -f flv rtmp://localhost:1935/live/stream
+# FFmpeg 명령어 실행 (rpicam 사용)
+echo "rpicam을 사용하여 스트림 시작..."
+ffmpeg -f v4l2 -video_size 1280x720 -framerate 30 -i /dev/video0 -c:v libx264 -preset ultrafast -tune zerolatency -b:v 3M -maxrate 3M -bufsize 6M -f flv rtmp://localhost:1935/live/stream
