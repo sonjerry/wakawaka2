@@ -53,42 +53,22 @@ def shutdown():
 
 def esc_from_norm(x: float) -> int:
     """
-    ★ [개선] 논리 명령(-1..1)을 물리적인 ESC PWM 신호(µs)로 변환합니다.
-    - Deadzone: 입력값이 매우 작을 때 모터가 떨리는 것을 방지하기 위해 중립 신호를 보냅니다.
-    - Start Threshold: Deadzone을 벗어나자마자 바로 최대 출력을 내는 대신,
-      설정된 '시작 임계치'부터 출력을 시작하여 더 부드러운 제어를 가능하게 합니다.
+    논리 명령(-1..1)을 물리적인 ESC PWM 신호(µs)로 변환합니다.
+    단순화된 선형 변환으로 1:1 대응을 보장합니다.
     """
     x = max(-1.0, min(1.0, float(x)))
     neu = config.ESC_NEUTRAL_US + config.ESC_TRIM_US
 
-    dz   = float(getattr(config, "ESC_DEADZONE_NORM", 0.02))
-    s_fw = float(getattr(config, "ESC_FWD_START_NORM", 0.05)) # config.py 수정에 맞춰 기본값 변경
-    s_rv = float(getattr(config, "ESC_REV_START_NORM", 0.05)) # config.py 수정에 맞춰 기본값 변경
-
-    # 1. 데드존 처리: 입력값이 데드존 안에 있으면, 정확한 중립 펄스를 반환합니다.
-    if abs(x) <= dz:
-        return int(neu)
-
-    # 2. 데드존 밖의 값을 [0, 1] 범위로 정규화합니다.
-    #    예: 데드존이 0.1일 때 입력 0.5 -> (0.5-0.1)/(1-0.1) -> 0.4/0.9 -> 0.444
+    # 단순한 선형 변환: -1~1을 MIN~MAX로 직접 매핑
     if x > 0:
-        # 전진 (Forward)
-        t = (x - dz) / (1.0 - dz)
-        t = 0.0 if t < 0 else (1.0 if t > 1.0 else t) # Clamp
-        
-        # 3. 정규화된 값을 실제 출력 범위 [시작임계치, 1]로 다시 스케일링합니다.
-        #    이것이 실제 모터에 전달될 출력 강도가 됩니다.
-        x_eff = s_fw + (1.0 - s_fw) * t
-        
-        # 4. 출력 강도를 실제 PWM 펄스 폭(µs)으로 변환합니다.
-        #    [중립, 최대] 범위 내에서 비례적으로 계산됩니다.
-        us = neu + (config.ESC_MAX_US - neu) * x_eff
+        # 전진: 0~1을 중립~최대로 변환
+        us = neu + (config.ESC_MAX_US - neu) * x
+    elif x < 0:
+        # 후진: -1~0을 최소~중립으로 변환
+        us = neu + (config.ESC_MIN_US - neu) * (-x)
     else:
-        # 후진 (Reverse)
-        t = ((-x) - dz) / (1.0 - dz)
-        t = 0.0 if t < 0 else (1.0 if t > 1.0 else t) # Clamp
-        x_eff = s_rv + (1.0 - s_rv) * t
-        us = neu - (neu - config.ESC_MIN_US) * x_eff
+        # 중립
+        us = neu
 
     return int(us)
 
