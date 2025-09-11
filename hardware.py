@@ -23,10 +23,15 @@ class OpenCVCamera:
         height = int(cam_cfg.get("height", 480))
         fps = int(cam_cfg.get("fps", 30))
 
-        cap = cv2.VideoCapture(index)
+        # V4L2 백엔드 사용(라즈베리파이 권장) + MJPG FOURCC 설정
+        cap = cv2.VideoCapture(index, cv2.CAP_V4L2)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         cap.set(cv2.CAP_PROP_FPS, fps)
+        try:
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+        except Exception:
+            pass
         self.cap = cap
 
     def read_jpeg(self) -> Optional[bytes]:
