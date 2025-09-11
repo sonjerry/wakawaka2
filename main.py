@@ -185,31 +185,45 @@ async def ws_handler(ws: WebSocket):
         # 안전을 위해 하드웨어를 안전 상태로 전환
         hardware.set_safe_state()
 
+def _check_engine_start_conditions(vehicle: VehicleModel) -> tuple[bool, str]:
+    """엔진 시동 조건을 검사하고 (성공여부, 오류메시지)를 반환합니다."""
+    if vehicle.gear != "P":
+        return False, getattr(config, "ENGINE_STOP_HINT_KO", "P단으로 변경하세요!")
+    if not _is_braking_now():
+        return False, "브레이크를 밟으세요!"
+    if vehicle.engine_cranking_timer > 0:
+        return False, "이미 시동 중입니다..."
+    return True, ""
+
+def _check_engine_stop_conditions(vehicle: VehicleModel) -> tuple[bool, str]:
+    """엔진 정지 조건을 검사하고 (성공여부, 오류메시지)를 반환합니다."""
+    require_p_to_stop = bool(getattr(config, "ENGINE_STOP_REQUIRE_P", True))
+    if require_p_to_stop and vehicle.gear != "P":
+        return False, getattr(config, "ENGINE_STOP_HINT_KO", "P단으로 변경하세요!")
+    return True, ""
+
 def handle_engine_toggle(vehicle: VehicleModel, ws: WebSocket):
     """엔진 시동/정지 토글 로직을 처리하는 보조 함수"""
-    require_p_to_stop = bool(getattr(config, "ENGINE_STOP_REQUIRE_P", True))
-
     if not vehicle.engine_running:
-        # 시동 조건: P 기어 + 브레이크
-        if vehicle.gear != "P":
-            asyncio.create_task(ws.send_text(json.dumps({
-                "engine_stop_hint": getattr(config, "ENGINE_STOP_HINT_KO", "P단으로 변경하세요!")
-            })))
-        elif not _is_braking_now():
-            asyncio.create_task(ws.send_text(json.dumps({"brake_hint": "브레이크를 밟으세요!"})))
+        # 시동 시도
+        success, error_msg = _check_engine_start_conditions(vehicle)
+        if success:
+            logging.info("엔진 시동 시작 (크랭킹)")
+            vehicle.engine_cranking_timer = getattr(config, "CRANKING_DURATION_S", 0.8)
         else:
-            if vehicle.engine_cranking_timer <= 0:
-                logging.info("엔진 시동 시작 (크랭킹)")
-                vehicle.engine_cranking_timer = getattr(config, "CRANKING_DURATION_S", 0.8)
+            asyncio.create_task(ws.send_text(json.dumps({
+                "engine_stop_hint" if "P단" in error_msg else "brake_hint": error_msg
+            })))
     else:
-        # 정지 조건: P 기어가 아닐 경우 거부 (설정에 따라)
-        if require_p_to_stop and vehicle.gear != "P":
-            asyncio.create_task(ws.send_text(json.dumps({
-                "engine_stop_hint": getattr(config, "ENGINE_STOP_HINT_KO", "P단으로 변경하세요!")
-            })))
-        else:
+        # 정지 시도
+        success, error_msg = _check_engine_stop_conditions(vehicle)
+        if success:
             logging.info("엔진 정지 시작")
             vehicle.engine_running = False
+        else:
+            asyncio.create_task(ws.send_text(json.dumps({
+                "engine_stop_hint": error_msg
+            })))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

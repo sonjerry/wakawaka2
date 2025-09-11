@@ -117,6 +117,8 @@
       // 서버가 보내준 확정된 엔진 상태로 UI 동기화
       if (typeof msg.engine_running === "boolean" && state.engine_running !== msg.engine_running) {
         state.engine_running = msg.engine_running;
+        // 엔진 상태 변경 시 클러스터 전원도 함께 동기화
+        setClusterPower(state.engine_running);
         if (state.engine_running) onEngineStart(); else onEngineStop();
       }
       
@@ -134,8 +136,7 @@
   DOMElements.btnHead.addEventListener("click", () => send({ head_toggle: true }));
   DOMElements.btnSport.addEventListener("click", () => send({ sport_mode_toggle: true }));
   DOMElements.btnEngine.addEventListener("click", () => {
-    // 엔진 버튼은 즉각적인 피드백을 위해 먼저 UI를 토글 (Optimistic UI)
-    toggleClusterPower();
+    // 엔진 버튼은 서버 응답을 기다린 후 UI 업데이트 (일관성 보장)
     send({ engine_toggle: true });
   });
 
@@ -210,10 +211,8 @@
     if (prev.sport_mode_on !== state.sport_mode_on) updateSportMode();
     if (prev.axis !== state.axis) updateAxisBar();
     
-    // 엔진 상태가 변경된 경우 클러스터 전원 상태 동기화
-    if (prev.engine_running !== state.engine_running) {
-      setClusterPower(state.engine_running);
-    }
+    // 엔진 상태가 변경된 경우는 이미 서버 메시지 처리에서 동기화됨
+    // (중복 제거)
     
     if (state.shift_fail) {
       DOMElements.gearIndicator.classList.add("error");
@@ -263,25 +262,20 @@
   }
 
   // --- 시동/정지 및 애니메이션 ---
-  function toggleClusterPower() {
-    DOMElements.body.classList.toggle("cluster-on");
-    DOMElements.body.classList.toggle("cluster-off");
-  }
-
   function setClusterPower(on) {
     DOMElements.body.classList.toggle("cluster-on", on);
     DOMElements.body.classList.toggle("cluster-off", !on);
   }
 
   function onEngineStart() {
-    setClusterPower(true);
+    // 클러스터 전원은 이미 setClusterPower에서 처리됨
     sweepAnimation.active = true;
     sweepAnimation.start = performance.now();
   }
 
   function onEngineStop() {
     sweepAnimation.active = false;
-    setClusterPower(false);
+    // 클러스터 전원은 이미 setClusterPower에서 처리됨
   }
 
   function renderSweepAnimation() {
@@ -329,6 +323,8 @@
   
   // ==== 8. 애플리케이션 시작 ====
   document.addEventListener("DOMContentLoaded", () => {
+    // 초기 상태: 클러스터 꺼짐 상태로 시작
+    setClusterPower(false);
     connect();
     requestAnimationFrame(mainLoop);
   });
