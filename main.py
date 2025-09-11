@@ -1,29 +1,10 @@
 import asyncio
 from quart import Quart, request, jsonify
-from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
+from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaPlayer
-from picamera2 import Picamera2
-from av import VideoFrame
-import cv2
 
 app = Quart(__name__)
 pcs = set()
-
-class PiVideoTrack(VideoStreamTrack):
-    def __init__(self):
-        super().__init__()
-        self.camera = Picamera2()
-        self.camera.configure(self.camera.create_video_configuration(main={"size": (640, 480)}))
-        self.camera.start()
-
-    async def recv(self):
-        pts, time_base = await self.next_timestamp()
-        frame = self.camera.capture_array("main")
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        video_frame = VideoFrame.from_ndarray(frame, format="bgr24")
-        video_frame.pts = pts
-        video_frame.time_base = time_base
-        return video_frame
 
 @app.route('/offer', methods=['POST'])
 async def offer():
@@ -39,9 +20,10 @@ async def offer():
             await pc.close()
             pcs.discard(pc)
 
-    await pc.setRemoteDescription(offer)
-    pc.addTrack(PiVideoTrack())
+    player = MediaPlayer("rpicam-vid --inline -o - --width 640 --height 480")
+    pc.addTrack(player.video)
 
+    await pc.setRemoteDescription(offer)
     answer = await pc.createAnswer()
     await pc.setLocalDescription(answer)
 
