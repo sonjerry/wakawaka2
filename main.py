@@ -1,20 +1,19 @@
 import time
-from typing import Generator
+from typing import Generator, Dict
 
-from flask import Flask, Response, jsonify, request, send_from_directory
+from quart import Quart, Response, jsonify, request, send_from_directory
 
 from config import load_config
 from hardware import Camera
 from webrtc import CameraVideoTrack
 from aiortc import RTCPeerConnection  # type: ignore
-from aiortc.contrib.signaling import BYE  # type: ignore
 
 
-def create_app() -> Flask:
+def create_app() -> Quart:
     config = load_config()
     camera = Camera(config=config)
 
-    app = Flask(
+    app = Quart(
         __name__,
         static_folder=".",
         static_url_path="",
@@ -30,26 +29,19 @@ def create_app() -> Flask:
             yield boundary + b"\r\n" + b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
 
     @app.get("/")
-    def root() -> Response:
-        return send_from_directory(".", "index.html")
+    async def root() -> Response:
+        return await send_from_directory(".", "index.html")
 
     # MJPEG는 유지하지 않고, WebRTC 시그널링 엔드포인트만 노출
     @app.post("/offer")
-    def webrtc_offer() -> Response:
-        offer = request.get_json(force=True)
+    async def webrtc_offer() -> Response:
+        offer = await request.get_json()
         pc = RTCPeerConnection()
         pc.addTrack(CameraVideoTrack(camera))
-
-        async def run() -> Dict[str, str]:
-            await pc.setRemoteDescription(offer)
-            answer = await pc.createAnswer()
-            await pc.setLocalDescription(answer)
-            return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
-
-        import asyncio
-
-        result = asyncio.get_event_loop().run_until_complete(run())
-        return jsonify(result)
+        await pc.setRemoteDescription(offer)
+        answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)
+        return jsonify({"sdp": pc.localDescription.sdp, "type": pc.localDescription.type})
 
     return app
 
@@ -60,7 +52,7 @@ def run() -> None:
     host = cfg.get("stream", {}).get("host", "0.0.0.0")
     port = int(cfg.get("stream", {}).get("port", 8000))
     debug = bool(cfg.get("stream", {}).get("debug", False))
-    app.run(host=host, port=port, debug=debug, threaded=True)
+    app.run(host=host, port=port, debug=debug)
 
 
 if __name__ == "__main__":
