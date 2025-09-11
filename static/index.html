@@ -1,13 +1,27 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC Streaming</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pi5 WebRTC Stream (480p/24fps)</title>
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-    <video id="remoteVideo" autoplay playsinline></video>
-    <script src="app.js"></script>
+  <main class="container">
+    <h1>Raspberry Pi 5 → WebRTC (단방향)</h1>
+
+    <div class="controls">
+      <button id="startBtn">스트리밍 시작</button>
+      <span id="status">대기</span>
+    </div>
+
+    <video id="remoteVideo" playsinline autoplay muted></video>
+
+    <p class="note">
+      같은 네트워크에서 접속 권장. HTTPS가 아니면 일부 브라우저에서 동작 제약이 있을 수 있음(로컬/랜 환경 권장).
+    </p>
+  </main>
+
+  <script src="/app.js"></script>
 </body>
 </html>
