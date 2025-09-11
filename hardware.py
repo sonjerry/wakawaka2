@@ -40,9 +40,8 @@ def set_safe_state():
     # 램프
     pca.channels[config.CH_HEAD].duty_cycle = 0
     pca.channels[config.CH_TAIL].duty_cycle = 0
-    # ESC 중립 펄스 유지 (아직 엔진이 꺼져 있어도 ESC를 깨우기 위해)
-    neu = _us_to_duty(config.ESC_NEUTRAL_US + config.ESC_TRIM_US)
-    pca.channels[config.CH_ESC].duty_cycle = neu
+    # ESC FULL-OFF
+    pca.channels[config.CH_ESC].duty_cycle = 0
 
 def shutdown():
     """프로세스 종료 전 호출"""
@@ -119,9 +118,8 @@ async def set_engine_enabled_async(on: bool):
         print("ESC 아밍 완료! 비프음이 들려야 합니다.")
     else:
         print("ESC 디스아밍...")
-        # 디스암: ESC 채널은 중립 펄스를 유지 (ESC가 계속 깨어 있도록)
-        neu = _us_to_duty(config.ESC_NEUTRAL_US + config.ESC_TRIM_US)
-        pca.channels[config.CH_ESC].duty_cycle = neu
+        # 디스암: ESC 채널 FULL-OFF (무음)
+        pca.channels[config.CH_ESC].duty_cycle = 0
         engine_enabled = False
         print("ESC 디스아밍 완료.")
 
@@ -136,9 +134,7 @@ def set_esc_speed(norm: float):
     if not hardware_present or pca is None:
         return
     if not engine_enabled:
-        # 엔진 비활성 시에도 ESC에는 중립 펄스를 지속 출력
-        neu = _us_to_duty(config.ESC_NEUTRAL_US + config.ESC_TRIM_US)
-        pca.channels[config.CH_ESC].duty_cycle = neu
+        pca.channels[config.CH_ESC].duty_cycle = 0
         return
     duty = _us_to_duty(esc_from_norm(norm))
     pca.channels[config.CH_ESC].duty_cycle = duty
