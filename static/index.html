@@ -177,8 +177,8 @@
                         }
                     };
                     
-                    // MediaMTX WebRTC 스트림 요청
-                    const response = await fetch('http://100.84.162.124:8889/whip', {
+                    // MediaMTX WebRTC 스트림 요청 (WHEP 사용)
+                    const response = await fetch('http://100.84.162.124:8889/whep', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/sdp'
