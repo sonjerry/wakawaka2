@@ -42,7 +42,7 @@ ESC_ARM_MAX_US  = 2000 # 아밍 시 최대 펄스
 # ARM_NEUTRAL_S   = 1.5
 
 # 논리 입력(-1..1)을 물리 ESC 펄스로 변환하기 위한 맵 (Micro ESC 최적화)
-ESC_DEADZONE_NORM   = 0.01   # |명령|<=1%면 진짜 중립 펄스 유지 (최소 데드존)
+ESC_DEADZONE_NORM   = 0.005  # |명령|<=0.5%면 진짜 중립 펄스 유지 (최소 데드존)
 ESC_FWD_START_NORM  = 0.01   # 전진 시작 임계 (1%에서 즉시 반응)
 ESC_REV_START_NORM  = 0.01   # 후진 시작 임계 (1%에서 즉시 반응)
 

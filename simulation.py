@@ -115,14 +115,17 @@ class VehicleModel:
         elif self.gear == "R":
             a_cmd = -abs(a_cmd) # 후진 가속만 허용
         
-        # 4. D 기어 데드존 및 크리프 처리
-        if self.gear == "D" and abs(self.axis) < self.AXIS_DEADZONE:
+        # 4. 기어별 데드존 및 크리프 처리
+        if self.gear in ("D", "R") and abs(self.axis) < self.AXIS_DEADZONE:
             a_cmd = 0.0 # 데드존 내에서는 가속 명령 없음
-            # 크리프: 계기판 1% 이하일 때 크리프 현상 구현 (1%에서 즉시 반응)
+            # 크리프: 정지 상태에서 기어가 D/R일 때 천천히 움직이기 시작
             current_speed_pct = abs(self.wheel_speed) * 100
-            if current_speed_pct < 1.0:  # 1% 이하에서 크리프 시작
-                creep_speed = 1.0 / 100.0  # 1%를 0.01로 변환
-                self.wheel_speed = clamp(self.wheel_speed + self.CREEP_A * dt, 0.0, creep_speed)
+            if current_speed_pct < 2.0:  # 2% 이하에서 크리프 동작
+                creep_target = 1.5 / 100.0  # 목표 크리프 속도: 1.5%
+                if self.gear == "D":
+                    self.wheel_speed = clamp(self.wheel_speed + self.CREEP_A * dt, 0.0, creep_target)
+                elif self.gear == "R":
+                    self.wheel_speed = clamp(self.wheel_speed - self.CREEP_A * dt, -creep_target, 0.0)
 
         # 5. 물리 저항(드래그) 계산
         v = self.wheel_speed
@@ -160,9 +163,16 @@ class VehicleModel:
         is_moving = self.gear in ('D', 'R')
         tail_brightness = 1.0 if (braking and is_moving) else (0.5 if self.head_on else 0.0)
 
+        # wheel_speed를 ESC 신호로 변환 - 시뮬레이션 속도와 실제 ESC 매핑 분리
+        esc_output = self.wheel_speed
+        
+        # 엔진이 꺼져있으면 ESC 출력은 0 (중립)
+        if not self.engine_running:
+            esc_output = 0.0
+
         return {
             "steering_us": int(self.steer_cur_us),
-            "esc_norm": self.wheel_speed,
+            "esc_norm": esc_output,
             "head_brightness": 1.0 if self.head_on else 0.0,
             "tail_brightness": tail_brightness,
         }

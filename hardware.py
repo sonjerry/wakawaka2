@@ -54,21 +54,26 @@ def shutdown():
 def esc_from_norm(x: float) -> int:
     """
     논리 명령(-1..1)을 물리적인 ESC PWM 신호(µs)로 변환합니다.
-    0이 중립값이 되도록 수정된 선형 변환입니다.
+    데드존을 적용하여 1% 이상에서 바퀴가 굴러가도록 수정된 변환입니다.
     """
     x = max(-1.0, min(1.0, float(x)))
     neu = config.ESC_NEUTRAL_US + config.ESC_TRIM_US
-
-    # 수정된 선형 변환: 0이 중립값이 되도록
+    
+    # 데드존 적용 - 1% 미만은 중립으로 처리
+    if abs(x) < config.ESC_DEADZONE_NORM:
+        return int(neu)
+    
     if x > 0:
-        # 전진: 0~1을 중립~최대로 변환
-        us = neu + (config.ESC_MAX_US - neu) * x
-    elif x < 0:
-        # 후진: -1~0을 최소~중립으로 변환
-        us = neu + (config.ESC_MIN_US - neu) * (-x)
+        # 전진: 데드존을 넘는 순간부터 바퀴가 굴러가기 시작
+        # 1%에서 즉시 반응하도록 매핑 조정
+        effective_x = (x - config.ESC_FWD_START_NORM) / (1.0 - config.ESC_FWD_START_NORM)
+        effective_x = max(0.0, effective_x)  # 음수 방지
+        us = neu + (config.ESC_MAX_US - neu) * effective_x
     else:
-        # 중립 (x = 0)
-        us = neu
+        # 후진: 데드존을 넘는 순간부터 바퀴가 굴러가기 시작
+        effective_x = (-x - config.ESC_REV_START_NORM) / (1.0 - config.ESC_REV_START_NORM)
+        effective_x = max(0.0, effective_x)  # 음수 방지
+        us = neu - (neu - config.ESC_MIN_US) * effective_x
 
     return int(us)
 

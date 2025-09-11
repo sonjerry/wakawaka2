@@ -15,12 +15,26 @@ async def calibrate_esc():
     print("주의: 바퀴를 지면에서 들어올리거나 차량을 안전하게 고정하세요!")
     print()
     
+    # 하드웨어 상태 확인
+    print("하드웨어 라이브러리 상태 확인 중...")
+    print(f"hardware_present: {hardware.hardware_present}")
+    
+    if not hardware.hardware_present:
+        print("❌ 하드웨어 라이브러리가 설치되지 않았습니다!")
+        print("다음 명령어로 설치하세요:")
+        print("pip install adafruit-circuitpython-pca9685")
+        print("pip install adafruit-circuitpython-busio")
+        return
+    
     # 하드웨어 초기화
     try:
+        print("하드웨어 초기화 시도 중...")
         hardware.init()
-        print("하드웨어 초기화 완료")
+        print("✅ 하드웨어 초기화 완료")
+        print(f"PCA9685 객체: {hardware.pca}")
     except Exception as e:
-        print(f"하드웨어 초기화 실패: {e}")
+        print(f"❌ 하드웨어 초기화 실패: {e}")
+        print("I2C 연결을 확인하세요 (SCL, SDA 핀)")
         return
     
     print("\n1. ESC를 완전히 끄기...")
