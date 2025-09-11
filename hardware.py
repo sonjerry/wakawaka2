@@ -29,6 +29,14 @@ class Camera:
         ok, buf = cv2.imencode(".jpg", arr, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         return buf.tobytes() if ok else None
 
+    def read_frame_bgr(self):
+        assert self.picam is not None
+        arr = self.picam.capture_array()
+        # Picamera2는 기본 RGB를 반환하는 경우가 많음. OpenCV용 BGR로 변환.
+        if arr.shape[-1] == 3:
+            return cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+        return arr
+
     def __del__(self) -> None:  # pragma: no cover
         try:
             if self.picam is not None:
