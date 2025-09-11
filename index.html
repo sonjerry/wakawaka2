@@ -17,45 +17,40 @@
 
   <script>
     const PI_IP = '100.84.162.124';
-    const WHEP_URL = `http://${PI_IP}:8080/whep`;
+    const STREAM_URL = `http://${PI_IP}:8080`;
     const video = document.getElementById('video');
     const status = document.getElementById('status');
-    let pc = null;
 
-    async function connect() {
+    function connect() {
       try {
-        pc = new RTCPeerConnection({ iceServers: [] });
-        pc.addTransceiver('video', { direction: 'recvonly' });
+        // 최소 지연시간을 위한 설정
+        video.src = STREAM_URL;
+        video.load();
         
-        pc.ontrack = (e) => {
-          video.srcObject = e.streams[0] || new MediaStream([e.track]);
-          status.textContent = '연결됨';
+        video.onloadstart = () => {
+          status.textContent = '연결 중...';
         };
-
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
         
-        await new Promise(resolve => {
-          if (pc.iceGatheringState === 'complete') resolve();
-          else pc.addEventListener('icegatheringstatechange', () => {
-            if (pc.iceGatheringState === 'complete') resolve();
-          });
-        });
-
-        const resp = await fetch(WHEP_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/sdp' },
-          body: pc.localDescription.sdp
-        });
-
-        if (!resp.ok) throw new Error(`연결 실패: ${resp.status}`);
+        video.oncanplay = () => {
+          status.textContent = '연결됨';
+          // 최소 지연을 위한 설정
+          video.currentTime = 0;
+        };
         
-        const answer = await resp.text();
-        await pc.setRemoteDescription({ type: 'answer', sdp: answer });
+        video.onerror = () => {
+          status.textContent = '연결 실패';
+          setTimeout(connect, 2000);
+        };
+        
+        // 연결 끊김 감지
+        video.onstalled = () => {
+          status.textContent = '연결 끊김';
+          setTimeout(connect, 1000);
+        };
         
       } catch (err) {
         status.textContent = `오류: ${err.message}`;
-        setTimeout(connect, 3000);
+        setTimeout(connect, 2000);
       }
     }
 
