@@ -17,8 +17,8 @@ STEER_SPEED_US_PER_S = 1000.0
 
 # ESC 펄스 임계치 (표준 브러시드 ESC 범위 + 크리프)
 ESC_MIN_US      = 1000 # ESC 최소값 (후진/브레이크)
-ESC_NEUTRAL_US  = 1800 # ESC 중립값 (크리프 - 8% 속도)
-ESC_MAX_US      = 2000 # ESC 최대값 (전진 - 최대 속도)
+ESC_NEUTRAL_US  = 2000 # ESC 중립값 (크리프 - 8% 속도)
+ESC_MAX_US      = 2200 # ESC 최대값 (전진 - 최대 속도)
 ESC_TRIM_US     = 0    # ESC 트림 조정값
 
 # ESC 아밍을 위한 특별한 펄스값들 (표준 ESC 아밍 범위)
