@@ -1,158 +1,53 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-ESC 캘리브레이션 도구
-펄스 임계치를 1부터 3000까지 천천히 올려서 ESC의 반응을 확인합니다.
-"""
-
+# esc_calibrate_pca9685.py
 import time
-import config
-import hardware
+from adafruit_pca9685 import PCA9685
+from board import SCL, SDA
+import busio
 
-def calibrate_esc():
-    """ESC 캘리브레이션 실행"""
-    print("=== ESC 캘리브레이션 시작 ===")
-    print("ESC가 연결되어 있는지 확인하세요.")
-    print("ESC의 비프음과 모터 반응을 주의깊게 관찰하세요.")
-    print("캘리브레이션 중에는 ESC를 만지지 마세요!")
-    print()
-    
-    # 하드웨어 초기화
-    hardware.init()
-    
-    # 사용자 확인
-    input("준비가 되면 Enter를 누르세요...")
-    print()
-    
-    try:
-        # ESC 아밍 먼저 수행
-        print("1. ESC 아밍 중...")
-        import asyncio
-        asyncio.run(hardware.set_engine_enabled_async(True))
-        print("ESC 아밍 완료!")
-        print()
-        
-        # 펄스 범위 설정 (크리프 현상 포함)
-        min_pulse = 1600  # ESC 최소값 (후진/브레이크)
-        max_pulse = 2000  # ESC 최대값 (최대 속도)
-        step = 1
-        delay = 0.1  # 각 단계마다 0.1초 대기
-        
-        print(f"2. 펄스 캘리브레이션 시작 ({min_pulse}us ~ {max_pulse}us)")
-        print(f"   단계: {step}us, 지연: {delay}초")
-        print("   ESC의 반응을 주의깊게 관찰하세요!")
-        print()
-        
-        # 펄스를 천천히 올리기
-        for pulse_us in range(min_pulse, max_pulse + 1, step):
-            # ESC에 펄스 전송
-            duty = hardware._us_to_duty(pulse_us)
-            if hardware.hardware_present and hardware.pca is not None:
-                hardware.pca.channels[config.CH_ESC].duty_cycle = duty
-            
-            # 진행 상황 표시 (100us마다)
-            if pulse_us % 100 == 0:
-                print(f"펄스: {pulse_us:4d}us (듀티: {duty:5d})", end="\r")
-            
-            # 잠시 대기
-            time.sleep(delay)
-        
-        print(f"\n펄스: {max_pulse:4d}us (듀티: {hardware._us_to_duty(max_pulse):5d})")
-        print()
-        
-        # 최대 펄스에서 잠시 대기
-        print("3. 최대 펄스에서 3초 대기...")
-        time.sleep(3)
-        
-        # 펄스를 천천히 내리기
-        print("4. 펄스를 천천히 내리는 중...")
-        for pulse_us in range(max_pulse, min_pulse - 1, -step):
-            duty = hardware._us_to_duty(pulse_us)
-            if hardware.hardware_present and hardware.pca is not None:
-                hardware.pca.channels[config.CH_ESC].duty_cycle = duty
-            
-            # 진행 상황 표시 (100us마다)
-            if pulse_us % 100 == 0:
-                print(f"펄스: {pulse_us:4d}us (듀티: {duty:5d})", end="\r")
-            
-            time.sleep(delay)
-        
-        print(f"\n펄스: {min_pulse:4d}us (듀티: {hardware._us_to_duty(min_pulse):5d})")
-        print()
-        
-        # 중립 펄스로 설정
-        print("5. 중립 펄스로 설정...")
-        neutral_duty = hardware._us_to_duty(config.ESC_NEUTRAL_US)
-        if hardware.hardware_present and hardware.pca is not None:
-            hardware.pca.channels[config.CH_ESC].duty_cycle = neutral_duty
-        print(f"중립 펄스: {config.ESC_NEUTRAL_US}us (듀티: {neutral_duty})")
-        
-        print()
-        print("=== ESC 캘리브레이션 완료 ===")
-        print("관찰한 내용을 바탕으로 config.py의 ESC 설정값을 조정하세요:")
-        print(f"  ESC_MIN_US = {config.ESC_MIN_US}  # 최소 펄스 (후진/브레이크)")
-        print(f"  ESC_NEUTRAL_US = {config.ESC_NEUTRAL_US}  # 중립 펄스 (정지)")
-        print(f"  ESC_MAX_US = {config.ESC_MAX_US}  # 최대 펄스 (전진)")
-        
-    except KeyboardInterrupt:
-        print("\n\n캘리브레이션이 중단되었습니다.")
-    except Exception as e:
-        print(f"\n오류 발생: {e}")
-    finally:
-        # 안전 상태로 복원
-        print("\n안전 상태로 복원 중...")
-        hardware.set_safe_state()
-        hardware.shutdown()
-        print("완료!")
+I2C_ADDR = 0x40
+CHANNEL = 1          # "1번 채널"
+FREQ_HZ = 50
 
-def quick_test():
-    """빠른 테스트 - 주요 펄스값들만 테스트"""
-    print("=== ESC 빠른 테스트 ===")
-    print("주요 펄스값들을 테스트합니다.")
-    print("1600us: 최소값 (후진/브레이크)")
-    print("1800us: 중립값 (크리프 - 8% 속도)")
-    print("2000us: 최대값 (최대 속도)")
-    print()
-    
-    hardware.init()
-    
-    try:
-        # ESC 아밍
-        print("ESC 아밍 중...")
-        import asyncio
-        asyncio.run(hardware.set_engine_enabled_async(True))
-        print("아밍 완료!")
-        print()
-        
-        # 테스트할 펄스값들 (크리프 현상 포함)
-        test_pulses = [1600, 1700, 1800, 1900, 2000]
-        
-        for pulse_us in test_pulses:
-            print(f"펄스 {pulse_us}us 테스트 중... (3초)")
-            duty = hardware._us_to_duty(pulse_us)
-            if hardware.hardware_present and hardware.pca is not None:
-                hardware.pca.channels[config.CH_ESC].duty_cycle = duty
-            time.sleep(3)
-        
-        print("테스트 완료!")
-        
-    except KeyboardInterrupt:
-        print("\n테스트가 중단되었습니다.")
-    finally:
-        hardware.set_safe_state()
-        hardware.shutdown()
+MIN_US = 1000
+MID_US = 1500
+MAX_US = 2000
+BIDIRECTIONAL = True
+
+# PCA9685는 12-bit(0~4095). 1사이클 = 20ms(50Hz)이므로 1us=4096/20000≈0.2048 카운트
+def us_to_counts(us):
+    return int(us * 4096 / 20000)
+
+def write_us(pca, ch, us):
+    ch.duty_cycle = us_to_counts(us)
 
 if __name__ == "__main__":
-    print("ESC 캘리브레이션 도구")
-    print("1. 전체 캘리브레이션 (1us ~ 3000us)")
-    print("2. 빠른 테스트 (주요 펄스값들만)")
-    print()
-    
-    choice = input("선택하세요 (1 또는 2): ").strip()
-    
-    if choice == "1":
-        calibrate_esc()
-    elif choice == "2":
-        quick_test()
-    else:
-        print("잘못된 선택입니다.")
+    i2c = busio.I2C(SCL, SDA)
+    pca = PCA9685(i2c, address=I2C_ADDR)
+    pca.frequency = FREQ_HZ
+    ch = pca.channels[CHANNEL]
+
+    try:
+        print("\n=== ESC 캘리브레이션 (PCA9685 CH1) ===")
+        input("1) ESC 전원을 분리한 상태에서 Enter ")
+        write_us(pca, ch, MAX_US)
+        print(f"[출력] MAX {MAX_US}us")
+        input("2) ESC 배터리 전원을 연결하고 비프가 나면 Enter ")
+
+        write_us(pca, ch, MIN_US)
+        print(f"[출력] MIN {MIN_US}us (저장 단계)")
+        time.sleep(2.0)
+
+        if BIDIRECTIONAL:
+            write_us(pca, ch, MID_US)
+            print(f"[출력] MID {MID_US}us (중립 세팅)")
+            time.sleep(1.5)
+
+        print("캘리브레이션 완료. 아밍은 전원 직후 MIN(일방향)/MID(양방향) 2~3초 유지.")
+
+    finally:
+        # 안전 정지: 펄스 유지가 필요한 ESC가 많으므로 중립으로 둔 채 종료
+        write_us(pca, ch, MID_US if BIDIRECTIONAL else MIN_US)
+        time.sleep(0.5)
+        # 필요시 완전 정지하고 싶으면 duty_cycle=0로 끊어도 됨(일부 ESC는 싫어할 수 있음)
+        # ch.duty_cycle = 0
+        pca.deinit()
