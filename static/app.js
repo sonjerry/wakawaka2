@@ -49,6 +49,7 @@
     rpm_norm: 0,
     speed_pct: 0,
     gear: "P",
+    virtual_gear: 1,  // 가상 기어 상태 추가
     head_on: false,
     engine_running: false,
     esc_armed: false,  // ESC 아밍 상태 추가
@@ -118,7 +119,10 @@
       // 서버로부터 받은 차량 상태 업데이트
       if (typeof msg.virtual_rpm === "number") state.rpm_norm = msg.virtual_rpm;
       if (typeof msg.speed_pct === "number") state.speed_pct = msg.speed_pct;
-      if (msg.gear) state.gear = (msg.gear === "D" && msg.virtual_gear) ? msg.virtual_gear.toString() : msg.gear;
+      if (msg.gear) {
+        state.gear = msg.gear;  // 기본 기어 상태 (P, R, N, D)
+        if (msg.virtual_gear) state.virtual_gear = msg.virtual_gear;  // 가상 기어 상태
+      }
       if (typeof msg.head_on === "boolean") state.head_on = msg.head_on;
       if (typeof msg.esc_armed === "boolean") state.esc_armed = msg.esc_armed;  // ESC 아밍 상태 추가
       if (typeof msg.sport_mode_on === "boolean") state.sport_mode_on = msg.sport_mode_on;
@@ -130,7 +134,15 @@
         state.engine_running = msg.engine_running;
         // 엔진 상태 변경 시 클러스터 전원도 함께 동기화
         setClusterPower(state.engine_running);
-        if (state.engine_running) onEngineStart(); else onEngineStop();
+        if (state.engine_running) {
+          onEngineStart();
+          // 시동 시 P단으로 설정 (서버에서 이미 처리되지만 UI 동기화)
+          if (state.gear !== "P") {
+            state.gear = "P";
+          }
+        } else {
+          onEngineStop();
+        }
       }
       
       state.shift_fail = !!msg.shift_fail;
@@ -216,7 +228,7 @@
     // 상태가 변경된 경우에만 DOM 업데이트
     if (prev.rpm_norm !== state.rpm_norm) updateGauge(DOMElements.needleRpm, DOMElements.readoutRpm, state.rpm_norm * config.RPM_MAX, config.RPM_MAX, "", state.rpm_norm >= config.RPM_REDZONE_NORM);
     if (prev.speed_pct !== state.speed_pct) updateGauge(DOMElements.needleSpeed, DOMElements.readoutSpeed, state.speed_pct, config.SPEED_MAX, "%");
-    if (prev.gear !== state.gear) updateGear();
+    if (prev.gear !== state.gear || prev.virtual_gear !== state.virtual_gear) updateGear();
     if (prev.head_on !== state.head_on) DOMElements.btnHead.classList.toggle("on", state.head_on);
     if (prev.sport_mode_on !== state.sport_mode_on) updateSportMode();
     if (prev.axis !== state.axis) updateAxisBar();
@@ -248,8 +260,22 @@
   }
   
   function updateGear() {
-    DOMElements.gearIndicator.textContent = state.gear;
-    DOMElements.gearButtons.forEach(el => el.classList.toggle("active", el.dataset.gear === state.gear.toString()[0]));
+    // 기어 표시: D단일 때는 가상 기어 번호 표시, 아니면 기본 기어 표시
+    const displayGear = (state.gear === "D" && state.virtual_gear) ? state.virtual_gear.toString() : state.gear;
+    DOMElements.gearIndicator.textContent = displayGear;
+    
+    // 버튼 활성화: 기본 기어 상태로 비교
+    DOMElements.gearButtons.forEach(el => {
+      const isActive = el.dataset.gear === state.gear;
+      el.classList.toggle("active", isActive);
+      
+      // 디버깅용 로그
+      if (isActive) {
+        console.log(`기어 버튼 활성화: ${el.dataset.gear} (현재 기어: ${state.gear})`);
+      }
+    });
+    
+    console.log(`기어 상태 업데이트: ${state.gear}, 가상기어: ${state.virtual_gear}, 표시: ${displayGear}`);
   }
   
   function updateSportMode() {
