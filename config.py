@@ -55,7 +55,7 @@ GEAR_TORQUE_SCALE = [1.00, 0.90, 0.80, 0.72, 0.66, 0.62, 0.60, 0.58]
 GEAR_DRAG_SCALE = [1.00, 0.75, 0.55, 0.40, 0.30, 0.22, 0.16, 0.12]
 
 # vRPM 설정
-VRPM_IDLE = 800
+VRPM_IDLE = 700
 VRPM_RED = 7000
 VRPM_UP_THRESHOLD = 6300      # 업시프트 임계값
 VRPM_DOWN_THRESHOLD = 2100    # 다운시프트 임계값
@@ -89,15 +89,10 @@ INPUT_DEADZONE = 2.0         # 입력 데드존
 INPUT_SLEW_LIMIT = 10.0      # 입력 슬루 제한 (루프당)
 THROTTLE_DELAY_RPM = 200     # 스로틀 높을 때 업시프트 지연 허용 RPM
 
-# ==== 3.5 기존 호환성 유지 ====
-RPM_SCALE_MAX       = 8000.0
-RPM_IDLE_VALUE      = 700
-RPM_CREEP_VALUE     = 1100.0
-RPM_FUEL_CUT_VALUE  = 7000.0
-REVERSE_RPM_MAX_VALUE = 4000.0
+# ==== 3.5 RPM 스케일링 (UI용) ====
+RPM_SCALE_MAX = 8000.0  # UI에서 사용하는 최대 RPM 값
 
 CRANKING_DURATION_S = 0.8    # 시동 거는 시간
-ENGINE_INERTIA      = 0.28   # 가상 엔진의 관성
 
 # ==== 4. 입력/기타 설정 ====
 AXIS_DEADZONE_UNITS = 5.0    # 입력 축 데드존 (±5)
