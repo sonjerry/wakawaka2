@@ -16,12 +16,43 @@ except ImportError:
 pca = None
 engine_enabled = False  # "ESC 출력 채널 활성"(아밍 완료) 상태
 
+# --- axis → vrpm 변환 상태 ---
+current_axis = 0.0  # -50..50 원본 입력
+current_vrpm = 0.0  # 계산된 vRPM 값
+
 def _us_to_duty(us: int) -> int:
     # 50Hz → 20,000us 주기, PCA9685는 12-bit duty_cycle(0~4095)
     # CircuitPython에서는 16-bit로 스케일링되지만 실제로는 12-bit 사용
     period_us = 1_000_000 / config.FREQUENCY_HZ  # 20,000us
     duty_ratio = us / period_us
     return int(duty_ratio * config.FULL_DUTY_CYCLE)
+
+def update_axis_input(axis_value: float):
+    """
+    axis 입력값을 업데이트하고 vrpm을 계산합니다.
+    axis: -50..50 범위의 입력값
+    """
+    global current_axis, current_vrpm
+    
+    # 입력값 클램핑
+    current_axis = max(-50.0, min(50.0, float(axis_value)))
+    
+    # axis → vrpm 변환 (간단한 선형 변환)
+    # axis -50..50 → vrpm 0..8000 (예시)
+    if current_axis >= 0:
+        # 전진: 0..50 → 1000..8000 RPM
+        current_vrpm = 1000.0 + (current_axis / 50.0) * 7000.0
+    else:
+        # 후진: -50..0 → 1000..2000 RPM (제한된 후진 RPM)
+        current_vrpm = 1000.0 + (abs(current_axis) / 50.0) * 1000.0
+
+def get_current_vrpm() -> float:
+    """현재 계산된 vRPM 값을 반환합니다."""
+    return current_vrpm
+
+def get_current_axis() -> float:
+    """현재 axis 입력값을 반환합니다."""
+    return current_axis
 
 def init():
     """PCA9685 초기화"""
@@ -147,8 +178,37 @@ def set_steering(pulse_us: int):
         return
     pca.channels[config.CH_STEER].duty_cycle = _us_to_duty(pulse_us)
 
+def set_esc_from_vrpm(vrpm: float):
+    """
+    vRPM 값을 받아서 ESC 신호를 생성합니다.
+    vrpm: 가상 RPM 값 (0..8000 범위)
+    """
+    if not hardware_present or pca is None:
+        return
+    if not engine_enabled:
+        pca.channels[config.CH_ESC].duty_cycle = 0
+        return
+    
+    # vRPM을 정규화된 값으로 변환 (-1..1)
+    # vrpm 1000..8000 → norm 0..1 (전진)
+    # vrpm 1000..2000 → norm -1..0 (후진, axis가 음수일 때)
+    if vrpm >= 1000.0:
+        if current_axis >= 0:
+            # 전진: 1000..8000 → 0..1
+            norm = (vrpm - 1000.0) / 7000.0
+            norm = max(0.0, min(1.0, norm))
+        else:
+            # 후진: 1000..2000 → -1..0
+            norm = -((vrpm - 1000.0) / 1000.0)
+            norm = max(-1.0, min(0.0, norm))
+    else:
+        norm = 0.0  # 중립
+    
+    duty = _us_to_duty(esc_from_norm(norm))
+    pca.channels[config.CH_ESC].duty_cycle = duty
+
 def set_esc_speed(norm: float):
-    """ESC 출력 제어 (엔진 활성일 때만)"""
+    """ESC 출력 제어 (엔진 활성일 때만) - 기존 호환성 유지"""
     if not hardware_present or pca is None:
         return
     if not engine_enabled:
@@ -191,6 +251,17 @@ def get_esc_status():
         "frequency_hz": config.FREQUENCY_HZ,
         "full_duty_cycle": config.FULL_DUTY_CYCLE
     }
+
+def update_hardware_control(axis_input: float):
+    """
+    하드웨어 제어를 업데이트합니다.
+    axis_input: -50..50 범위의 입력값
+    """
+    # 1. axis → vrpm 변환
+    update_axis_input(axis_input)
+    
+    # 2. vrpm → ESC 신호 변환
+    set_esc_from_vrpm(current_vrpm)
 
 def test_esc_pulse(us: int):
     """ESC에 특정 펄스 폭을 테스트로 전송"""

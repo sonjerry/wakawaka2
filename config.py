@@ -16,8 +16,8 @@ STEER_CENTER_US = 1800
 STEER_SPEED_US_PER_S = 1000.0
 
 # ESC 펄스 임계치 (확장된 브러시드 ESC 범위)
-ESC_MIN_US      = 1300  # ESC 최소값 (후진/브레이크) - 더 넓은 범위
-ESC_NEUTRAL_US  = 1650 # ESC 중립값 (실제 중립점 - 모터가 정지하는 지점)
+ESC_MIN_US      = 1000  # ESC 최소값 (후진/브레이크) - 더 넓은 범위
+ESC_NEUTRAL_US  = 1500 # ESC 중립값 (실제 중립점 - 모터가 정지하는 지점)
 ESC_MAX_US      = 2000 # ESC 최대값 (전진 - 최대 속도) - 더 넓은 범위
 ESC_TRIM_US     = 0    # ESC 트림 조정값
 
@@ -25,10 +25,10 @@ ESC_TRIM_US     = 0    # ESC 트림 조정값
 ESC_ARM_MIN_US  = 1000  # 아밍 시 최소 펄스 (실제 제어 범위와 일치)
 ESC_ARM_MAX_US  = 2000 # 아밍 시 최대 펄스 (실제 제어 범위와 일치)
 
-# ESC 아밍 시퀀스 타이밍 (초)
-ARM_OFF_DELAY_S    = 1.0  # ESC OFF 후 대기 시간 (더 길게)
-ARM_MAX_DELAY_S    = 1.0  # MAX 신호 유지 시간 (더 길게)
-ARM_MIN_DELAY_S    = 1.0  # MIN 신호 유지 시간 (더 길게)
+# ESC 아밍 시퀀스 타이밍 (초).0
+ARM_OFF_DELAY_S    = 0.0 # ESC OFF 후 대기 시간 (더 길게)
+ARM_MAX_DELAY_S    = 0.2  # MAX 신호 유지 시간 (더 길게)
+ARM_MIN_DELAY_S    = 0.2  # MIN 신호 유지 시간 (더 길게)
 ARM_NEUTRAL_DELAY_S = 1.0 # 중립 신호 유지 시간 (더 길게)
 
 
@@ -39,7 +39,7 @@ ESC_REV_START_NORM  = 0.01   # 후진 시작 임계 (1%에서 반응)
 
 # ==== 3. 시뮬레이션 및 엔진/변속 설정 ====
 TICK_S          = 0.01       # 시뮬레이션/제어 루프 주기 (100Hz)
-ARM_NEUTRAL_S   = 0.5        # ESC 아밍을 위한 중립 펄스 유지 시간 (Micro ESC 최적화)
+ARM_NEUTRAL_S   = 1.0        # ESC 아밍을 위한 중립 펄스 유지 시간 (Micro ESC 최적화)
 ARM_SEQUENCE_S  = 0.2        # 아밍 시퀀스 각 단계 간격 (더 빠르게)
 LED_SINK_WIRING = True       # LED 배선 방식 (현재 사용되지 않음)
 

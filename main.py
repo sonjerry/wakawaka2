@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 import config
 import hardware
-from simulation import VehicleModel
+from automission import VirtualTransmission
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -25,7 +25,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 # --- 애플리케이션 상태 관리 ---
 # FastAPI의 app.state를 사용하여 애플리케이션의 생명주기 동안 상태를 안전하게 관리합니다.
 app.state.controller = None  # 현재 연결된 웹소켓 클라이언트
-app.state.vehicle = VehicleModel()  # 차량 시뮬레이션 모델 인스턴스
+app.state.transmission = VirtualTransmission()  # 가상 변속기 인스턴스
 app.state.prev_engine_running = False  # 이전 tick의 엔진 상태
 app.state.tick_task = None  # 메인 제어 루프 태스크
 
@@ -67,83 +67,83 @@ def _is_braking_now() -> bool:
     """
     return app.state.axis <= -config.AXIS_DEADZONE_UNITS
 
-def build_inputs_from_state() -> dict:
-    """앱 상태로부터 시뮬레이션에 필요한 입력 딕셔너리를 구성합니다."""
-    inputs = {
-        "axis": app.state.axis,
-        "steer_dir": app.state.steer_dir,
-    }
-    if app.state.requested_gear:
-        inputs["gear"] = app.state.requested_gear
-        app.state.requested_gear = None  # 기어 요청은 한 번만 처리
-    return inputs
 
 async def tick_loop():
-    """차량 시뮬레이션 및 하드웨어 제어를 담당하는 메인 루프입니다."""
+    """가상 변속기 및 하드웨어 제어를 담당하는 메인 루프입니다."""
     dt = config.TICK_S
-    vehicle = app.state.vehicle
+    transmission = app.state.transmission
     
     while True:
-        inputs = build_inputs_from_state()
-        vehicle.update(dt, inputs)
+        # 1. axis 입력을 하드웨어에 전달하여 vrpm 계산
+        hardware.update_hardware_control(app.state.axis)
+        current_vrpm = hardware.get_current_vrpm()
+        
+        # 2. 가상 변속기 업데이트 (vrpm → ESC 신호)
+        gear_input = app.state.requested_gear
+        if gear_input:
+            app.state.requested_gear = None  # 한 번만 처리
+        transmission.update(dt, current_vrpm, gear_input)
 
-        # 엔진 상태 변화 감지 및 하드웨어 아밍/디스아밍 처리
-        if vehicle.engine_running != app.state.prev_engine_running:
+        # 3. 엔진 상태 변화 감지 및 하드웨어 아밍/디스아밍 처리
+        if transmission.engine_running != app.state.prev_engine_running:
             try:
-                if vehicle.engine_running:
+                if transmission.engine_running:
                     logging.info("엔진 시동. ESC 아밍 절차를 시작합니다...")
                     await hardware.set_engine_enabled_async(True)
-                    vehicle.esc_armed = True  # ESC 아밍 완료 상태 설정
+                    transmission.set_engine_state(True, True)  # 엔진 실행, ESC 아밍
                     logging.info("ESC 아밍 완료.")
                 else:
                     logging.info("엔진 정지. ESC 디스아밍을 시작합니다...")
                     await hardware.set_engine_enabled_async(False)
-                    vehicle.esc_armed = False  # ESC 디스아밍 상태 설정
+                    transmission.set_engine_state(False, False)  # 엔진 정지, ESC 디스아밍
                     logging.info("ESC 디스아밍 완료.")
-                app.state.prev_engine_running = vehicle.engine_running
+                app.state.prev_engine_running = transmission.engine_running
             except Exception as e:
                 logging.error(f"ESC 아밍/디스아밍 중 오류 발생: {e}")
-        
-        # 크랭킹 시작 시 즉시 ESC 아밍 (시동 걸 때 비프음이 들리도록)
-        if vehicle.engine_cranking_timer > 0.0 and app.state.prev_engine_running == False:
-            try:
-                logging.info("시동 크랭킹 시작. ESC 아밍을 즉시 수행합니다...")
-                await hardware.set_engine_enabled_async(True)
-                vehicle.esc_armed = True  # ESC 아밍 완료 상태 설정
-                logging.info("ESC 아밍 완료 (크랭킹 중).")
-            except Exception as e:
-                logging.error(f"크랭킹 중 ESC 아밍 오류 발생: {e}")
 
-
-        # 시뮬레이션 결과를 실제 하드웨어에 적용
-        outs = vehicle.get_hardware_outputs(inputs)
+        # 4. 가상 변속기에서 계산된 ESC 신호를 하드웨어에 적용
+        esc_output = transmission.get_esc_output()
         try:
-            hardware.set_steering(outs["steering_us"])
-            if vehicle.engine_running:
-                hardware.set_esc_speed(outs["esc_norm"])
-            hardware.set_headlight(outs["head_brightness"])
-            hardware.set_taillight(outs["tail_brightness"])
+            # 조향은 별도 처리 (기존 로직 유지)
+            steer_dir = app.state.steer_dir
+            if steer_dir == -1:
+                hardware.set_steering(config.STEER_LEFT_US)
+            elif steer_dir == 1:
+                hardware.set_steering(config.STEER_RIGHT_US)
+            else:
+                hardware.set_steering(config.STEER_CENTER_US)
+            
+            # ESC는 가상 변속기에서 계산된 값 사용
+            hardware.set_esc_speed(esc_output)
+            
+            # 조명 제어 (간단한 로직)
+            hardware.set_headlight(1.0 if getattr(transmission, 'head_on', False) else 0.0)
+            hardware.set_taillight(0.5 if transmission.engine_running else 0.0)
         except Exception as e:
             logging.error(f"하드웨어 제어 중 오류 발생: {e}")
 
-        # 웹소켓 클라이언트에 현재 상태 전송
+        # 5. 웹소켓 클라이언트에 현재 상태 전송
         controller: WebSocket = app.state.controller
         if controller:
-            snap = vehicle.get_state_snapshot(inputs)
+            snap = transmission.get_state_snapshot()
+            # 기존 형식과 호환성을 위해 추가 정보 포함
+            snap.update({
+                "virtual_rpm": snap["input_vrpm"] / 8000.0,  # 0..1로 정규화
+                "speed_pct": int(snap["current_speed"] * 100),
+                "head_on": getattr(transmission, 'head_on', False),
+                "sport_mode_on": getattr(transmission, 'sport_mode_on', False),
+            })
             try:
                 await controller.send_text(json.dumps(snap))
                 # 주기적으로 상태 로그 출력 (5초마다)
                 if int(time.time()) % 5 == 0:
-                    logging.info(f"상태 전송: RPM={snap.get('virtual_rpm', 0):.2f}, Speed={snap.get('speed_pct', 0)}%, Gear={snap.get('gear', 'P')}, Engine={snap.get('engine_running', False)}")
+                    logging.info(f"상태 전송: vRPM={snap['input_vrpm']:.0f}, Speed={snap['speed_pct']}%, Gear={snap['gear']}, Engine={snap['engine_running']}")
             except WebSocketDisconnect:
-                # 연결이 끊어진 경우를 대비하여 명시적으로 처리
                 app.state.controller = None
                 logging.info("데이터 전송 중 클라이언트 연결 끊김 감지.")
             except Exception as e:
-                # 기타 예외 상황 처리
                 app.state.controller = None
                 logging.warning(f"데이터 전송 중 오류 발생: {e}")
-
 
         await asyncio.sleep(dt)
 
@@ -190,11 +190,15 @@ async def ws_handler(ws: WebSocket):
 
             # 토글 버튼 입력 처리
             if data.get("head_toggle"):
-                app.state.vehicle.head_on = not app.state.vehicle.head_on
+                if not hasattr(app.state.transmission, 'head_on'):
+                    app.state.transmission.head_on = False
+                app.state.transmission.head_on = not app.state.transmission.head_on
             if data.get("sport_mode_toggle"):
-                app.state.vehicle.sport_mode_on = not app.state.vehicle.sport_mode_on
+                if not hasattr(app.state.transmission, 'sport_mode_on'):
+                    app.state.transmission.sport_mode_on = False
+                app.state.transmission.sport_mode_on = not app.state.transmission.sport_mode_on
             if data.get("engine_toggle"):
-                handle_engine_toggle(app.state.vehicle, ws)
+                handle_engine_toggle(app.state.transmission, ws)
                         
     except WebSocketDisconnect:
         logging.info("클라이언트 연결이 끊어졌습니다.")
@@ -203,41 +207,39 @@ async def ws_handler(ws: WebSocket):
         # 안전을 위해 하드웨어를 안전 상태로 전환
         hardware.set_safe_state()
 
-def _check_engine_start_conditions(vehicle: VehicleModel) -> tuple[bool, str]:
+def _check_engine_start_conditions(transmission: VirtualTransmission) -> tuple[bool, str]:
     """엔진 시동 조건을 검사하고 (성공여부, 오류메시지)를 반환합니다."""
-    if vehicle.gear != "P":
+    if transmission.gear != "P":
         return False, getattr(config, "ENGINE_STOP_HINT_KO", "P단으로 변경하세요!")
     if not _is_braking_now():
         return False, "브레이크를 밟으세요!"
-    if vehicle.engine_cranking_timer > 0:
-        return False, "이미 시동 중입니다..."
     return True, ""
 
-def _check_engine_stop_conditions(vehicle: VehicleModel) -> tuple[bool, str]:
+def _check_engine_stop_conditions(transmission: VirtualTransmission) -> tuple[bool, str]:
     """엔진 정지 조건을 검사하고 (성공여부, 오류메시지)를 반환합니다."""
     require_p_to_stop = bool(getattr(config, "ENGINE_STOP_REQUIRE_P", True))
-    if require_p_to_stop and vehicle.gear != "P":
+    if require_p_to_stop and transmission.gear != "P":
         return False, getattr(config, "ENGINE_STOP_HINT_KO", "P단으로 변경하세요!")
     return True, ""
 
-def handle_engine_toggle(vehicle: VehicleModel, ws: WebSocket):
+def handle_engine_toggle(transmission: VirtualTransmission, ws: WebSocket):
     """엔진 시동/정지 토글 로직을 처리하는 보조 함수"""
-    if not vehicle.engine_running:
+    if not transmission.engine_running:
         # 시동 시도
-        success, error_msg = _check_engine_start_conditions(vehicle)
+        success, error_msg = _check_engine_start_conditions(transmission)
         if success:
-            logging.info("엔진 시동 시작 (크랭킹)")
-            vehicle.engine_cranking_timer = getattr(config, "CRANKING_DURATION_S", 0.8)
+            logging.info("엔진 시동 시작")
+            transmission.set_engine_state(True, True)  # 엔진 실행, ESC 아밍
         else:
             asyncio.create_task(ws.send_text(json.dumps({
                 "engine_stop_hint" if "P단" in error_msg else "brake_hint": error_msg
             })))
     else:
         # 정지 시도
-        success, error_msg = _check_engine_stop_conditions(vehicle)
+        success, error_msg = _check_engine_stop_conditions(transmission)
         if success:
             logging.info("엔진 정지 시작")
-            vehicle.engine_running = False
+            transmission.set_engine_state(False, False)  # 엔진 정지, ESC 디스아밍
         else:
             asyncio.create_task(ws.send_text(json.dumps({
                 "engine_stop_hint": error_msg
