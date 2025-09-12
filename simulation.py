@@ -57,11 +57,11 @@ class VehicleModel:
         self.gear = "P"  # "P", "R", "N", "D"
         self.virtual_gear = 1  # 1..8단 (D 기어에서만 사용)
         
-        # --- 속도 및 vRPM ---
+        # --- 속도 및 vRPM (새로운 8단 변속기 시스템) ---
         self.wheel_speed = 0.0  # -1(후진)..1(전진) 정규화된 바퀴 속도
         self.speed_est = 0.0  # 속도 추정기 출력 (m/s)
-        self.vrpm = 0.0  # 가상 RPM (실제 값)
-        self.vrpm_norm = 0.0  # 0..1 정규화된 RPM (UI용)
+        self.vrpm = 0.0  # 가상 RPM (실제 값, 기어비 적용됨)
+        self.vrpm_norm = 0.0  # 0..1 정규화된 RPM (UI 표시용)
         
         # --- 변속 상태기계 ---
         self.shift_state = ShiftState.READY
@@ -86,7 +86,7 @@ class VehicleModel:
         self.gear_torque_scale = config.GEAR_TORQUE_SCALE
         self.gear_drag_scale = config.GEAR_DRAG_SCALE
         
-        # vRPM 설정
+        # vRPM 설정 (새로운 8단 변속기 시스템)
         self.vrpm_idle = config.VRPM_IDLE
         self.vrpm_red = config.VRPM_RED
         self.vrpm_up_threshold = config.VRPM_UP_THRESHOLD
@@ -120,16 +120,11 @@ class VehicleModel:
         self.input_slew_limit = config.INPUT_SLEW_LIMIT
         self.throttle_delay_rpm = config.THROTTLE_DELAY_RPM
         
-        # RPM 설정
-        self.RPM_MAX = config.RPM_SCALE_MAX
-        self.RPM_IDLE = config.RPM_IDLE_VALUE / self.RPM_MAX
-        self.RPM_CREEP = config.RPM_CREEP_VALUE / self.RPM_MAX
-        self.RPM_FUELCUT = config.RPM_FUEL_CUT_VALUE / self.RPM_MAX
-        self.RPM_R_MAX_R = config.REVERSE_RPM_MAX_VALUE / self.RPM_MAX
+        # UI용 RPM 스케일링
+        self.rpm_scale_max = config.RPM_SCALE_MAX
         
         # 물리 파라미터
         self.AXIS_DEADZONE = config.AXIS_DEADZONE_UNITS
-        self.ENGINE_INERTIA = config.ENGINE_INERTIA
         
         # 가속/감속 및 저항 계수
         self.A_POS = 0.2
@@ -302,7 +297,7 @@ class VehicleModel:
         self.wheel_speed = clamp(self.speed_est / 10.0, -1.0, 1.0)
 
     def _update_vrpm(self):
-        """vRPM을 계산합니다."""
+        """vRPM을 계산합니다. (새로운 8단 변속기 시스템)"""
         if not self.engine_running:
             self.vrpm = 0.0
             return
@@ -311,27 +306,27 @@ class VehicleModel:
         wheel_rad_s = self.speed_est / self.wheel_radius
         
         if self.gear == "D" and 1 <= self.virtual_gear <= 8:
-            # D 기어: 기어비 적용
+            # D 기어: 8단 변속기 기어비 적용
             gear_ratio = self.gear_ratios[self.virtual_gear - 1]
             total_ratio = gear_ratio * self.final_drive
             self.vrpm = wheel_rad_s * total_ratio * 60.0 / (2.0 * math.pi)
         elif self.gear == "R":
-            # R 기어: 고정 기어비
-            self.vrpm = wheel_rad_s * 3.0 * 60.0 / (2.0 * math.pi)  # R 기어는 3.0 기어비 가정
+            # R 기어: 고정 기어비 (3.0)
+            self.vrpm = wheel_rad_s * 3.0 * 60.0 / (2.0 * math.pi)
         else:
-            # P, N 기어: IDLE RPM
+            # P, N 기어: IDLE RPM 유지
             self.vrpm = self.vrpm_idle
         
-        # 하한 적용
+        # 최소 RPM 보장 (IDLE 이하로 떨어지지 않음)
         self.vrpm = max(self.vrpm, self.vrpm_idle)
 
     def _update_shift_scheduling(self):
-        """변속 스케줄링을 처리합니다."""
+        """vRPM 기반 자동 변속 스케줄링을 처리합니다."""
         if self.shift_state != ShiftState.READY:
             return  # 변속 중이면 스케줄링 안함
         
         if self.vrpm < self.vrpm_idle:
-            return  # RPM이 너무 낮으면 변속 안함
+            return  # RPM이 IDLE 이하면 변속 안함
         
         # 업시프트 체크
         if (self.virtual_gear < 8 and 
@@ -526,10 +521,10 @@ class VehicleModel:
         self.wheel_speed = clamp(new_wheel_speed, -1.0, 1.0)
 
     def _update_rpm_normalization(self):
-        """RPM을 정규화하여 UI에 전달합니다."""
+        """vRPM을 정규화하여 UI에 전달합니다."""
         if not self.engine_running:
             self.vrpm_norm = 0.0
             return
         
-        # vRPM을 0..1 범위로 정규화
-        self.vrpm_norm = clamp(self.vrpm / self.RPM_MAX, 0.0, 1.0)
+        # vRPM을 0..1 범위로 정규화 (UI 스케일 기준)
+        self.vrpm_norm = clamp(self.vrpm / self.rpm_scale_max, 0.0, 1.0)
