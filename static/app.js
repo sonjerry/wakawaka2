@@ -38,6 +38,9 @@
     axisReadout: document.getElementById("axisReadout"),
     netLatency: document.getElementById("netLatency"),
     toast: document.getElementById("toast"),
+    shiftInfo: document.getElementById("shiftInfo"),
+    shiftState: document.getElementById("shiftState"),
+    torqueCmd: document.getElementById("torqueCmd"),
   };
 
   // ==== 3. 애플리케이션 상태 관리 ====
@@ -51,8 +54,11 @@
     shift_fail: false,
     axis: 0,
     steer_dir: 0,
+    shift_state: "READY",
+    torque_cmd: 0,
   };
   const keyState = {}; // 현재 눌린 키 상태
+  const prev = { ...state }; // 변경 감지를 위한 이전 상태 저장 객체
 
   // ==== 4. 웹소켓 통신 ====
   let ws;
@@ -113,6 +119,8 @@
       if (msg.gear) state.gear = (msg.gear === "D" && msg.virtual_gear) ? msg.virtual_gear.toString() : msg.gear;
       if (typeof msg.head_on === "boolean") state.head_on = msg.head_on;
       if (typeof msg.sport_mode_on === "boolean") state.sport_mode_on = msg.sport_mode_on;
+      if (msg.shift_state) state.shift_state = msg.shift_state;
+      if (typeof msg.torque_cmd === "number") state.torque_cmd = msg.torque_cmd;
       
       // 서버가 보내준 확정된 엔진 상태로 UI 동기화
       if (typeof msg.engine_running === "boolean" && state.engine_running !== msg.engine_running) {
@@ -193,7 +201,6 @@
   }
 
   // ==== 7. 렌더링 및 UI 업데이트 ====
-  const prev = { ...state }; // 변경 감지를 위한 이전 상태 저장 객체
   let sweepAnimation = { active: false, start: 0, up: 700, down: 600 };
 
   function render() {
@@ -210,6 +217,8 @@
     if (prev.head_on !== state.head_on) DOMElements.btnHead.classList.toggle("on", state.head_on);
     if (prev.sport_mode_on !== state.sport_mode_on) updateSportMode();
     if (prev.axis !== state.axis) updateAxisBar();
+    if (prev.shift_state !== state.shift_state) updateShiftState();
+    if (prev.torque_cmd !== state.torque_cmd) updateTorqueCmd();
     
     // 엔진 상태가 변경된 경우는 이미 서버 메시지 처리에서 동기화됨
     // (중복 제거)
@@ -251,6 +260,35 @@
     DOMElements.axisBarFill.style.height = `${posPct}%`;
     DOMElements.axisBarFillNeg.style.height = `${negPct}%`;
     DOMElements.axisReadout.textContent = Math.round(state.axis);
+  }
+  
+  function updateShiftState() {
+    DOMElements.shiftState.textContent = state.shift_state;
+    
+    // D 기어에서만 변속 정보 표시
+    if (state.gear === "D") {
+      DOMElements.shiftInfo.style.display = "block";
+      
+      // 변속 상태에 따른 색상 변경
+      DOMElements.shiftState.className = "shift-state";
+      if (state.shift_state !== "READY") {
+        DOMElements.shiftState.classList.add("shifting");
+      }
+    } else {
+      DOMElements.shiftInfo.style.display = "none";
+    }
+  }
+  
+  function updateTorqueCmd() {
+    DOMElements.torqueCmd.textContent = `${Math.round(state.torque_cmd)}%`;
+    
+    // 토크 방향에 따른 색상 변경
+    DOMElements.torqueCmd.className = "torque-cmd";
+    if (state.torque_cmd > 0) {
+      DOMElements.torqueCmd.classList.add("positive");
+    } else if (state.torque_cmd < 0) {
+      DOMElements.torqueCmd.classList.add("negative");
+    }
   }
 
   function updateNetworkLatency(rtt) {

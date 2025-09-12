@@ -391,7 +391,48 @@ body.sport-mode-active .card {
 }
 
 
-/* ==== 6. 반응형 디자인 ==== */
+/* ==== 6. 변속 정보 표시 ==== */
+
+.shift-info {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: var(--card);
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.shift-state {
+  font-weight: bold;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.shift-state.shifting {
+  color: var(--sport-color);
+  animation: pulse 0.5s ease-in-out infinite alternate;
+}
+
+.torque-cmd {
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.torque-cmd.positive {
+  color: #4ade80; /* green-400 */
+}
+
+.torque-cmd.negative {
+  color: #f87171; /* red-400 */
+}
+
+@keyframes pulse {
+  from { opacity: 0.6; }
+  to { opacity: 1.0; }
+}
+
+/* ==== 7. 반응형 디자인 ==== */
 /* 화면 너비가 900px 이하일 때 컨트롤들을 세로로 쌓음 */
 
 @media (max-width: 900px) {
@@ -403,5 +444,9 @@ body.sport-mode-active .card {
   }
   .instrument-cluster {
     order: -1; /* 계기판을 맨 위로 올림 */
+  }
+  
+  .shift-info {
+    font-size: 0.7rem;
   }
 }
