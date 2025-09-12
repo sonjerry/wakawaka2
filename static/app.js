@@ -227,7 +227,10 @@
 
     // 상태가 변경된 경우에만 DOM 업데이트
     if (prev.rpm_norm !== state.rpm_norm) updateGauge(DOMElements.needleRpm, DOMElements.readoutRpm, state.rpm_norm * config.RPM_MAX, config.RPM_MAX, "", state.rpm_norm >= config.RPM_REDZONE_NORM);
-    if (prev.speed_pct !== state.speed_pct) updateGauge(DOMElements.needleSpeed, DOMElements.readoutSpeed, state.speed_pct, config.SPEED_MAX, "%");
+    if (prev.speed_pct !== state.speed_pct) {
+      updateGauge(DOMElements.needleSpeed, DOMElements.readoutSpeed, state.speed_pct, config.SPEED_MAX, "%");
+      console.log(`속도 업데이트: ${state.speed_pct}% (기어: ${state.gear})`);
+    }
     if (prev.gear !== state.gear || prev.virtual_gear !== state.virtual_gear) updateGear();
     if (prev.head_on !== state.head_on) DOMElements.btnHead.classList.toggle("on", state.head_on);
     if (prev.sport_mode_on !== state.sport_mode_on) updateSportMode();

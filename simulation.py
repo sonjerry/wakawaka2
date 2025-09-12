@@ -59,7 +59,7 @@ class VehicleModel:
         self.virtual_gear = 1  # 1..8단 (D 기어에서만 사용)
         
         # --- 속도 및 vRPM (새로운 8단 변속기 시스템) ---
-        self.speed = 0.0  # -1(후진)..1(전진) 정규화된 속도 (ESC 신호와 동일)
+        self.speed = 0.0  # 0..1 정규화된 속도 (자동차 방식 - 항상 양수)
         self.vrpm = 0.0  # 가상 RPM (실제 값, 기어비 적용됨)
         self.vrpm_norm = 0.0  # 0..1 정규화된 RPM (UI 표시용)
         
@@ -147,9 +147,12 @@ class VehicleModel:
 
     def get_state_snapshot(self, inputs: dict = None) -> dict:
         """웹 클라이언트에 보낼 현재 상태 딕셔너리를 반환합니다."""
+        # 자동차 방식: 속도는 항상 양수 (0~100%)
+        speed_pct = int(self.speed * 100)
+        
         return {
             "virtual_rpm": clamp(self.vrpm_norm, 0.0, 1.0),
-            "speed_pct": int(abs(self.speed) * 100),
+            "speed_pct": speed_pct,
             "gear": self.gear,
             "virtual_gear": self.virtual_gear if self.gear == "D" else 1,
             "head_on": self.head_on,
@@ -166,12 +169,17 @@ class VehicleModel:
         is_moving = self.gear in ('D', 'R')
         tail_brightness = 1.0 if (braking and is_moving) else (0.5 if self.head_on else 0.0)
 
-        # ESC 출력 = 속도 (동일한 변수)
-        esc_output = self.speed
+        # 자동차 방식: 기어에 따라 ESC 펄스 범위 결정
+        esc_output = 0.0  # 기본값 (중립)
         
-        # 엔진이 꺼져있거나 ESC가 아밍되지 않았으면 ESC 출력은 0
-        if not self.engine_running or not self.esc_armed:
-            esc_output = 0.0
+        if self.engine_running and self.esc_armed:
+            if self.gear == "D":
+                # D단: 전진 (0~1 속도 → 0~1 정규화값, 양수)
+                esc_output = self.speed
+            elif self.gear == "R":
+                # R단: 후진 (0~1 속도 → -1~0 정규화값, 음수)
+                esc_output = -self.speed
+            # P, N단: 0.0 (중립)
 
         return {
             "steering_us": int(self.steer_cur_us),
@@ -399,12 +407,9 @@ class VehicleModel:
             # 브레이크 토크 계산 (속도에 비례한 제동력)
             brake_torque = self.brake_intent * self.max_brake_torque
             
-            # D 기어에서는 전진 방향으로만 제동
-            if self.gear == "D":
-                self.torque_cmd = -brake_torque if self.speed > 0.0 else 0.0
-            elif self.gear == "R":
-                # R 기어에서는 후진 방향으로만 제동
-                self.torque_cmd = brake_torque if self.speed < 0.0 else 0.0
+            # 자동차 방식: 브레이크는 항상 양수 (속도 감소)
+            if self.gear in ("D", "R") and self.speed > 0.0:
+                self.torque_cmd = -brake_torque  # 브레이크는 음수 토크
             else:
                 self.torque_cmd = 0.0
             return
@@ -426,11 +431,9 @@ class VehicleModel:
         # 7. 최종 토크 명령
         self.torque_cmd = base_torque + creep_torque + drag_torque
         
-        # 8. 기어별 제한 적용
-        if self.gear == "D":
-            self.torque_cmd = clamp(self.torque_cmd, 0.0, 100.0)  # D 기어: 양수만
-        elif self.gear == "R":
-            self.torque_cmd = clamp(self.torque_cmd, -100.0, 0.0)  # R 기어: 음수만
+        # 8. 자동차 방식: 토크는 항상 양수, 방향은 기어로 결정
+        if self.gear in ("D", "R"):
+            self.torque_cmd = clamp(self.torque_cmd, 0.0, 100.0)  # D, R 기어: 양수만
         else:
             self.torque_cmd = 0.0  # P, N 기어: 토크 없음
 
@@ -474,7 +477,7 @@ class VehicleModel:
             gear_scale = self.gear_torque_scale[self.virtual_gear - 1]
             return engine_torque * gear_scale
         elif self.gear == "R":
-            return -engine_torque  # R 기어는 음수 토크
+            return engine_torque  # R 기어도 양수 토크 (자동차 방식)
         else:
             return 0.0
     
@@ -556,15 +559,14 @@ class VehicleModel:
         a = (a_cmd - total_drag) * self.MASS_K
         new_speed = self.speed + a * dt
         
-        # 기어별 방향 제한
-        if self.gear == "D":
-            new_speed = max(0.0, new_speed)  # D 기어: 전진만
-        elif self.gear == "R":
-            new_speed = min(0.0, new_speed)  # R 기어: 후진만
-        elif self.gear in ("P", "N"):
+        # 자동차 방식: 속도는 항상 양수, 방향은 기어로 결정
+        if self.gear in ("P", "N"):
             new_speed = 0.0  # P, N 기어: 정지
+        else:
+            # D, R 기어: 속도는 항상 양수 (0~1)
+            new_speed = max(0.0, abs(new_speed))
         
-        self.speed = clamp(new_speed, -1.0, 1.0)
+        self.speed = clamp(new_speed, 0.0, 1.0)
 
     def _update_rpm_normalization(self):
         """vRPM을 정규화하여 UI에 전달합니다."""
