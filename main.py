@@ -93,10 +93,12 @@ async def tick_loop():
                 if vehicle.engine_running:
                     logging.info("엔진 시동. ESC 아밍 절차를 시작합니다...")
                     await hardware.set_engine_enabled_async(True)
+                    vehicle.esc_armed = True  # ESC 아밍 완료 상태 설정
                     logging.info("ESC 아밍 완료.")
                 else:
                     logging.info("엔진 정지. ESC 디스아밍을 시작합니다...")
                     await hardware.set_engine_enabled_async(False)
+                    vehicle.esc_armed = False  # ESC 디스아밍 상태 설정
                     logging.info("ESC 디스아밍 완료.")
                 app.state.prev_engine_running = vehicle.engine_running
             except Exception as e:
@@ -107,6 +109,7 @@ async def tick_loop():
             try:
                 logging.info("시동 크랭킹 시작. ESC 아밍을 즉시 수행합니다...")
                 await hardware.set_engine_enabled_async(True)
+                vehicle.esc_armed = True  # ESC 아밍 완료 상태 설정
                 logging.info("ESC 아밍 완료 (크랭킹 중).")
             except Exception as e:
                 logging.error(f"크랭킹 중 ESC 아밍 오류 발생: {e}")

@@ -57,25 +57,24 @@ def shutdown():
 def esc_from_norm(x: float) -> int:
     """
     논리 명령(-1..1)을 물리적인 ESC PWM 신호(µs)로 변환합니다.
-    데드존을 적용하여 1% 이상에서 바퀴가 굴러가도록 수정된 변환입니다.
+    데드존을 적용하여 안정적인 제어를 제공합니다.
     """
     x = max(-1.0, min(1.0, float(x)))
     neu = config.ESC_NEUTRAL_US + config.ESC_TRIM_US
     
-    # 데드존 적용 - 1% 미만은 중립으로 처리
+    # 데드존 적용 - 설정된 임계값 미만은 중립으로 처리
     if abs(x) < config.ESC_DEADZONE_NORM:
         return int(neu)
     
     if x > 0:
-        # 전진: 데드존을 넘는 순간부터 바퀴가 굴러가기 시작
-        # 1%에서 즉시 반응하도록 매핑 조정
-        effective_x = (x - config.ESC_FWD_START_NORM) / (1.0 - config.ESC_FWD_START_NORM)
-        effective_x = max(0.0, effective_x)  # 음수 방지
+        # 전진: 데드존을 넘는 부분을 0~1로 정규화
+        effective_x = (x - config.ESC_DEADZONE_NORM) / (1.0 - config.ESC_DEADZONE_NORM)
+        effective_x = max(0.0, min(1.0, effective_x))  # 0~1 범위로 제한
         us = neu + (config.ESC_MAX_US - neu) * effective_x
     else:
-        # 후진: 데드존을 넘는 순간부터 바퀴가 굴러가기 시작
-        effective_x = (-x - config.ESC_REV_START_NORM) / (1.0 - config.ESC_REV_START_NORM)
-        effective_x = max(0.0, effective_x)  # 음수 방지
+        # 후진: 데드존을 넘는 부분을 0~1로 정규화
+        effective_x = (-x - config.ESC_DEADZONE_NORM) / (1.0 - config.ESC_DEADZONE_NORM)
+        effective_x = max(0.0, min(1.0, effective_x))  # 0~1 범위로 제한
         us = neu - (neu - config.ESC_MIN_US) * effective_x
 
     return int(us)
@@ -127,6 +126,8 @@ async def set_engine_enabled_async(on: bool):
         engine_enabled = True
         print("ESC 아밍 완료! 비프음이 들려야 합니다.")
         print(f"현재 ESC 설정: 중립={neutral_us}us, duty_cycle={neu_duty}")
+        print(f"ESC 제어 범위: {config.ESC_MIN_US}us ~ {config.ESC_MAX_US}us")
+        print(f"ESC 아밍 범위: {config.ESC_ARM_MIN_US}us ~ {config.ESC_ARM_MAX_US}us")
         
         # 6) 아밍 확인을 위한 추가 검증
         await asyncio.sleep(0.5)

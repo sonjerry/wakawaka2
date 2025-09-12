@@ -41,6 +41,7 @@
     shiftInfo: document.getElementById("shiftInfo"),
     shiftState: document.getElementById("shiftState"),
     torqueCmd: document.getElementById("torqueCmd"),
+    escStatus: document.getElementById("escStatus"),
   };
 
   // ==== 3. 애플리케이션 상태 관리 ====
@@ -50,6 +51,7 @@
     gear: "P",
     head_on: false,
     engine_running: false,
+    esc_armed: false,  // ESC 아밍 상태 추가
     sport_mode_on: false,
     shift_fail: false,
     axis: 0,
@@ -118,6 +120,7 @@
       if (typeof msg.speed_pct === "number") state.speed_pct = msg.speed_pct;
       if (msg.gear) state.gear = (msg.gear === "D" && msg.virtual_gear) ? msg.virtual_gear.toString() : msg.gear;
       if (typeof msg.head_on === "boolean") state.head_on = msg.head_on;
+      if (typeof msg.esc_armed === "boolean") state.esc_armed = msg.esc_armed;  // ESC 아밍 상태 추가
       if (typeof msg.sport_mode_on === "boolean") state.sport_mode_on = msg.sport_mode_on;
       if (msg.shift_state) state.shift_state = msg.shift_state;
       if (typeof msg.torque_cmd === "number") state.torque_cmd = msg.torque_cmd;
@@ -219,6 +222,7 @@
     if (prev.axis !== state.axis) updateAxisBar();
     if (prev.shift_state !== state.shift_state) updateShiftState();
     if (prev.torque_cmd !== state.torque_cmd) updateTorqueCmd();
+    if (prev.esc_armed !== state.esc_armed) updateEscStatus();
     
     // 엔진 상태가 변경된 경우는 이미 서버 메시지 처리에서 동기화됨
     // (중복 제거)
@@ -288,6 +292,16 @@
       DOMElements.torqueCmd.classList.add("positive");
     } else if (state.torque_cmd < 0) {
       DOMElements.torqueCmd.classList.add("negative");
+    }
+  }
+  
+  function updateEscStatus() {
+    if (state.esc_armed) {
+      DOMElements.escStatus.textContent = "ESC 준비 완료";
+      DOMElements.escStatus.className = "esc-status ready";
+    } else {
+      DOMElements.escStatus.textContent = "ESC 준비 중...";
+      DOMElements.escStatus.className = "esc-status arming";
     }
   }
 

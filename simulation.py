@@ -47,6 +47,7 @@ class VehicleModel:
         self.sport_mode_on = False
         self.engine_running = False
         self.engine_cranking_timer = 0.0
+        self.esc_armed = False  # ESC 아밍 상태 추가
 
         # --- 입력 상태 ---
         self.axis = 0.0  # -50..50 원본 입력
@@ -153,6 +154,7 @@ class VehicleModel:
             "virtual_gear": self.virtual_gear if self.gear == "D" else 1,
             "head_on": self.head_on,
             "engine_running": self.engine_running,
+            "esc_armed": self.esc_armed,  # ESC 아밍 상태 추가
             "sport_mode_on": self.sport_mode_on,
             "shift_state": self.shift_state.value if self.gear == "D" else "READY",
             "torque_cmd": round(self.torque_cmd, 1),
@@ -167,8 +169,8 @@ class VehicleModel:
         # ESC 출력 = 속도 (동일한 변수)
         esc_output = self.speed
         
-        # 엔진이 꺼져있으면 ESC 출력은 0
-        if not self.engine_running:
+        # 엔진이 꺼져있거나 ESC가 아밍되지 않았으면 ESC 출력은 0
+        if not self.engine_running or not self.esc_armed:
             esc_output = 0.0
 
         return {
@@ -204,7 +206,9 @@ class VehicleModel:
             if self.engine_cranking_timer <= 0.0:
                 self.engine_running = True
         
+        # 엔진이 꺼지면 ESC도 디스아밍
         if not self.engine_running:
+            self.esc_armed = False
             if self.engine_cranking_timer > 0.0:
                 self.vrpm_norm = clamp(0.03 + random.uniform(-0.02, 0.02), 0.0, 1.0)
             else:
