@@ -52,13 +52,10 @@
     virtual_gear: 1,  // 가상 기어 상태 추가
     head_on: false,
     engine_running: false,
-    esc_armed: false,  // ESC 아밍 상태 추가
     sport_mode_on: false,
     shift_fail: false,
     axis: 0,
     steer_dir: 0,
-    shift_state: "READY",
-    torque_cmd: 0,
   };
   const keyState = {}; // 현재 눌린 키 상태
   const prev = { ...state }; // 변경 감지를 위한 이전 상태 저장 객체
@@ -124,10 +121,7 @@
         if (msg.virtual_gear) state.virtual_gear = msg.virtual_gear;  // 가상 기어 상태
       }
       if (typeof msg.head_on === "boolean") state.head_on = msg.head_on;
-      if (typeof msg.esc_armed === "boolean") state.esc_armed = msg.esc_armed;  // ESC 아밍 상태 추가
       if (typeof msg.sport_mode_on === "boolean") state.sport_mode_on = msg.sport_mode_on;
-      if (msg.shift_state) state.shift_state = msg.shift_state;
-      if (typeof msg.torque_cmd === "number") state.torque_cmd = msg.torque_cmd;
       
       // 서버가 보내준 확정된 엔진 상태로 UI 동기화
       if (typeof msg.engine_running === "boolean" && state.engine_running !== msg.engine_running) {
@@ -235,9 +229,7 @@
     if (prev.head_on !== state.head_on) DOMElements.btnHead.classList.toggle("on", state.head_on);
     if (prev.sport_mode_on !== state.sport_mode_on) updateSportMode();
     if (prev.axis !== state.axis) updateAxisBar();
-    if (prev.shift_state !== state.shift_state) updateShiftState();
-    if (prev.torque_cmd !== state.torque_cmd) updateTorqueCmd();
-    if (prev.esc_armed !== state.esc_armed) updateEscStatus();
+    // 하드웨어 관련 UI 업데이트 제거
     
     // 엔진 상태가 변경된 경우는 이미 서버 메시지 처리에서 동기화됨
     // (중복 제거)
@@ -295,44 +287,7 @@
     DOMElements.axisReadout.textContent = Math.round(state.axis);
   }
   
-  function updateShiftState() {
-    DOMElements.shiftState.textContent = state.shift_state;
-    
-    // D 기어에서만 변속 정보 표시
-    if (state.gear === "D") {
-      DOMElements.shiftInfo.style.display = "block";
-      
-      // 변속 상태에 따른 색상 변경
-      DOMElements.shiftState.className = "shift-state";
-      if (state.shift_state !== "READY") {
-        DOMElements.shiftState.classList.add("shifting");
-      }
-    } else {
-      DOMElements.shiftInfo.style.display = "none";
-    }
-  }
-  
-  function updateTorqueCmd() {
-    DOMElements.torqueCmd.textContent = `${Math.round(state.torque_cmd)}%`;
-    
-    // 토크 방향에 따른 색상 변경
-    DOMElements.torqueCmd.className = "torque-cmd";
-    if (state.torque_cmd > 0) {
-      DOMElements.torqueCmd.classList.add("positive");
-    } else if (state.torque_cmd < 0) {
-      DOMElements.torqueCmd.classList.add("negative");
-    }
-  }
-  
-  function updateEscStatus() {
-    if (state.esc_armed) {
-      DOMElements.escStatus.textContent = "ESC 준비 완료";
-      DOMElements.escStatus.className = "esc-status ready";
-    } else {
-      DOMElements.escStatus.textContent = "ESC 준비 중...";
-      DOMElements.escStatus.className = "esc-status arming";
-    }
-  }
+  // 하드웨어 관련 렌더링 함수들 제거
 
   function updateNetworkLatency(rtt) {
     let color = "#8aff8a"; // good
