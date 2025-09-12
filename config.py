@@ -16,14 +16,14 @@ STEER_CENTER_US = 1800
 STEER_SPEED_US_PER_S = 1000.0
 
 # ESC 펄스 임계치 (확장된 브러시드 ESC 범위)
-ESC_MIN_US      = 800  # ESC 최소값 (후진/브레이크) - 더 넓은 범위
-ESC_NEUTRAL_US  = 1500 # ESC 중립값 (실제 중립점 - 모터가 정지하는 지점)
-ESC_MAX_US      = 2200 # ESC 최대값 (전진 - 최대 속도) - 더 넓은 범위
+ESC_MIN_US      = 1300  # ESC 최소값 (후진/브레이크) - 더 넓은 범위
+ESC_NEUTRAL_US  = 1650 # ESC 중립값 (실제 중립점 - 모터가 정지하는 지점)
+ESC_MAX_US      = 2000 # ESC 최대값 (전진 - 최대 속도) - 더 넓은 범위
 ESC_TRIM_US     = 0    # ESC 트림 조정값
 
 # ESC 아밍을 위한 특별한 펄스값들 (실제 제어 범위와 일치)
-ESC_ARM_MIN_US  = 800  # 아밍 시 최소 펄스 (실제 제어 범위와 일치)
-ESC_ARM_MAX_US  = 2200 # 아밍 시 최대 펄스 (실제 제어 범위와 일치)
+ESC_ARM_MIN_US  = 1000  # 아밍 시 최소 펄스 (실제 제어 범위와 일치)
+ESC_ARM_MAX_US  = 2000 # 아밍 시 최대 펄스 (실제 제어 범위와 일치)
 
 # ESC 아밍 시퀀스 타이밍 (초)
 ARM_OFF_DELAY_S    = 1.0  # ESC OFF 후 대기 시간 (더 길게)
