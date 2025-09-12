@@ -41,7 +41,6 @@
     shiftInfo: document.getElementById("shiftInfo"),
     shiftState: document.getElementById("shiftState"),
     torqueCmd: document.getElementById("torqueCmd"),
-    escStatus: document.getElementById("escStatus"),
   };
 
   // ==== 3. 애플리케이션 상태 관리 ====
