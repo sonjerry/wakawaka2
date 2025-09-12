@@ -23,10 +23,11 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 # --- 애플리케이션 상태 관리 ---
 # FastAPI의 app.state를 사용하여 애플리케이션의 생명주기 동안 상태를 안전하게 관리합니다.
-app.state.controller = None  # 현재 연결된 웹소켓 클라이언트
-app.state.tick_task = None  # 메인 제어 루프 태스크
-app.state.pwm_controller = None  # PWM 하드웨어 컨트롤러
-app.state.engine_running = False  # 시동 상태 (on/off)
+app.state.controller = None          # 현재 연결된 웹소켓 클라이언트
+app.state.tick_task = None           # 메인 제어 루프 태스크
+app.state.pwm_controller = None      # PWM 하드웨어 컨트롤러
+app.state.engine_running = False     # 시동 상태 (on/off)
+app.state.steer_angle_deg = 0.0      # ✅ 서버가 보관하는 현재 조향각(-90~+90), 입력 없으면 유지
 
 # --- 클라이언트 입력 상태 ---
 # 웹소켓을 통해 들어온 최신 입력값을 저장합니다.
@@ -87,7 +88,7 @@ async def ws_handler(ws: WebSocket):
         try:
             await app.state.controller.close()
         except Exception:
-            pass # 이미 닫혔을 수 있음
+            pass  # 이미 닫혔을 수 있음
     app.state.controller = ws
     logging.info("🎮 웹소켓 클라이언트가 연결되었습니다.")
     
@@ -107,6 +108,11 @@ async def ws_handler(ws: WebSocket):
                     # 시동 켜기
                     if app.state.pwm_controller:
                         app.state.pwm_controller.arm_esc()
+                        # 시동 시 현재 서버 저장 각도로 서보 동기화 (기본 0도)
+                        try:
+                            app.state.pwm_controller.set_servo_angle(app.state.steer_angle_deg)
+                        except Exception as e:
+                            logging.warning(f"시동 시 조향 초기화 실패: {e}")
                         app.state.engine_running = True
                         await ws.send_text(json.dumps({
                             "engine_running": True,
@@ -130,21 +136,29 @@ async def ws_handler(ws: WebSocket):
                     }))
                 continue
             
-            # 조향 제어 (시동이 켜져있을 때만)
-            if "steer_dir" in data and app.state.engine_running:
+            # ✅ 조향 제어 (서버 주도: 입력 없으면 자동으로 0으로 복귀하지 않음)
+            # 클라이언트는 steer_delta(증분, deg)를 보냄. 엔진이 켜져있을 때만 반영.
+            if "steer_delta" in data and app.state.engine_running:
+                try:
+                    delta = float(data["steer_delta"])
+                except Exception:
+                    delta = 0.0
+                new_angle = app.state.steer_angle_deg + delta
+                # 안전 클램프
+                if new_angle > 90.0:
+                    new_angle = 90.0
+                elif new_angle < -90.0:
+                    new_angle = -90.0
+                app.state.steer_angle_deg = new_angle
                 if app.state.pwm_controller:
-                    # steer_dir는 -1 ~ 1 범위의 실수값
-                    # 이를 -90도 ~ 90도 범위로 매핑
-                    steer_angle = data["steer_dir"] * 90
-                    app.state.pwm_controller.set_servo_angle(steer_angle)
+                    app.state.pwm_controller.set_servo_angle(new_angle)
                 continue
-            
             
             # 스로틀 제어 (시동이 켜져있을 때만)
             if "axis" in data and app.state.engine_running:
                 if app.state.pwm_controller:
                     speed = data["axis"]  # -50 ~ 50 범위를 -100 ~ 100으로 변환
-                    speed = speed * 2  # -100 ~ 100으로 변환
+                    speed = speed * 2     # -100 ~ 100으로 변환
                     app.state.pwm_controller.set_esc_speed(speed)
                 continue
             
@@ -164,14 +178,20 @@ async def ws_handler(ws: WebSocket):
             
             # 기어 변경 (시동이 켜져있을 때만)
             if "gear" in data and app.state.engine_running:
-                # 기어 변경 로직 (필요시 추가)
+                gear_val = data["gear"]
+                # 하드웨어에도 즉시 반영 (D/R/N/P 규칙 강제는 hardware.py가 처리)
+                if app.state.pwm_controller:
+                    try:
+                        app.state.pwm_controller.set_gear(gear_val)
+                    except Exception as e:
+                        logging.warning(f"기어 하드웨어 반영 실패: {e}")
                 await ws.send_text(json.dumps({
-                    "gear": data["gear"],
-                    "message": f"기어 변경: {data['gear']}"
+                    "gear": gear_val,
+                    "message": f"기어 변경: {gear_val}"
                 }))
                 continue
             
-            # 핑/퐁 외의 입력은 무시
+            # 기타 입력은 무시
                         
     except WebSocketDisconnect:
         logging.info("클라이언트 연결이 끊어졌습니다.")
