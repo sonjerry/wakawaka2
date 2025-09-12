@@ -18,14 +18,6 @@ class PWMController:
             'taillight': 3   # 후미등
         }
         
-        # GPIO 핀 정의 (예시 - 실제 핀 번호에 맞게 수정 필요)
-        self.pins = {
-            'servo': 18,     # GPIO 18
-            'esc': 19,       # GPIO 19
-            'headlight': 20, # GPIO 20
-            'taillight': 21  # GPIO 21
-        }
-        
         # PWM 객체들
         self.pwm_objects = {}
         
@@ -44,15 +36,15 @@ class PWMController:
     
     def initialize_pwm(self):
         """PWM 초기화"""
-        try:
-            for channel_name, pin in self.pins.items():
-                GPIO.setup(pin, GPIO.OUT)
-                pwm = GPIO.PWM(pin, 50)  # 50Hz 주파수
+        for channel_name, channel_num in self.channels.items():
+            try:
+                pwm = GPIO.PWM(channel_num, 50)  # 50Hz 주파수
                 pwm.start(0)  # 0% 듀티 사이클로 시작
                 self.pwm_objects[channel_name] = pwm
-                print(f"{channel_name} PWM 초기화 완료 (핀: {pin})")
-        except Exception as e:
-            print(f"PWM 초기화 오류: {e}")
+                print(f"{channel_name} PWM 초기화 완료 (채널: {channel_num})")
+            except Exception as e:
+                print(f"{channel_name} PWM 초기화 실패: {e}")
+                self.pwm_objects[channel_name] = None
     
     def set_servo_angle(self, angle):
         """서보모터 각도 설정 (조향모터)
@@ -61,6 +53,9 @@ class PWMController:
         """
         if not -90 <= angle <= 90:
             print("서보모터 각도는 -90도에서 90도 사이여야 합니다.")
+            return
+        
+        if self.pwm_objects['servo'] is None:
             return
         
         # 각도를 듀티 사이클로 변환 (1ms ~ 2ms 펄스)
@@ -82,6 +77,9 @@ class PWMController:
             print("ESC가 준비되지 않았습니다. 시동 버튼을 먼저 누르세요.")
             return
         
+        if self.pwm_objects['esc'] is None:
+            return
+        
         # 속도를 듀티 사이클로 변환
         # -100: 5%, 0: 7.5%, 100: 10%
         duty_cycle = 7.5 + (speed * 2.5 / 100)
@@ -93,6 +91,9 @@ class PWMController:
         Args:
             state: True (켜기) / False (끄기)
         """
+        if self.pwm_objects['headlight'] is None:
+            return
+        
         duty_cycle = 10 if state else 0
         self.pwm_objects['headlight'].ChangeDutyCycle(duty_cycle)
         status = "켜짐" if state else "꺼짐"
@@ -103,6 +104,9 @@ class PWMController:
         Args:
             state: True (켜기) / False (끄기)
         """
+        if self.pwm_objects['taillight'] is None:
+            return
+        
         duty_cycle = 10 if state else 0
         self.pwm_objects['taillight'].ChangeDutyCycle(duty_cycle)
         status = "켜짐" if state else "꺼짐"
@@ -138,8 +142,9 @@ class PWMController:
     
     def emergency_stop(self):
         """비상정지"""
-        self.pwm_objects['esc'].ChangeDutyCycle(self.esc_min)
-        self.set_servo_angle(0)  # 조향 중앙으로 복귀
+        if self.pwm_objects['esc'] is not None:
+            self.pwm_objects['esc'].ChangeDutyCycle(self.esc_min)
+        self.set_servo_angle(0)
         self.esc_ready = False
         self.esc_armed = False
         print("비상정지 실행! 조향 중앙 복귀 완료")
@@ -147,7 +152,8 @@ class PWMController:
     def cleanup(self):
         """리소스 정리"""
         for pwm in self.pwm_objects.values():
-            pwm.stop()
+            if pwm is not None:
+                pwm.stop()
         GPIO.cleanup()
         print("PWM 컨트롤러 정리 완료")
 
