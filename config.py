@@ -96,6 +96,7 @@ CRANKING_DURATION_S = 0.8    # 시동 거는 시간
 
 # ==== 4. 입력/기타 설정 ====
 AXIS_DEADZONE_UNITS = 5.0    # 입력 축 데드존 (±5)
+BRAKE_IDLE_THRESHOLD = -35.0  # 브레이크 -35 이상에서 vRPM IDLE 유지
 
 # 조향/시동 정책
 ALLOW_STEER_WHEN_ENGINE_ON = True
