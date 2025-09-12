@@ -60,9 +60,11 @@ class PWMController:
         
         # 각도를 듀티 사이클로 변환 (1ms ~ 2ms 펄스)
         # -90도: 1ms (5%), 0도: 1.5ms (7.5%), 90도: 2ms (10%)
+        # 더 정밀한 계산을 위해 소수점 2자리까지 반올림
         duty_cycle = 5 + (angle + 90) * (5 / 180)
+        duty_cycle = round(duty_cycle, 2)
         self.pwm_objects['servo'].ChangeDutyCycle(duty_cycle)
-        print(f"서보모터 각도 설정: {angle}도 (듀티: {duty_cycle:.1f}%)")
+        print(f"서보모터 각도 설정: {angle:.1f}도 (듀티: {duty_cycle:.2f}%)")
     
     def set_esc_speed(self, speed):
         """ESC 속도 설정 (DC모터 구동모터)

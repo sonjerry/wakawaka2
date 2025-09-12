@@ -194,8 +194,26 @@
     else if (keyState.s && !keyState.w) state.axis -= slewDown;
     state.axis = clamp(state.axis, config.AXIS_MIN, config.AXIS_MAX);
 
-    // 조향값 계산
-    state.steer_dir = (keyState.a && !keyState.d) ? -1 : (keyState.d && !keyState.a) ? 1 : 0;
+    // 조향값 계산 - 점진적으로 증가/감소
+    const steerSlewRate = 120; // 조향 속도 (도/초)
+    const steerSlew = steerSlewRate * dt;
+    
+    if (keyState.a && !keyState.d) {
+      // a키: 좌회전 (음수 방향으로 증가)
+      state.steer_dir = Math.max(state.steer_dir - steerSlew, -1);
+    } else if (keyState.d && !keyState.a) {
+      // d키: 우회전 (양수 방향으로 증가)
+      state.steer_dir = Math.min(state.steer_dir + steerSlew, 1);
+    } else {
+      // 키를 누르지 않으면 중앙으로 복귀
+      if (state.steer_dir > 0.01) {
+        state.steer_dir = Math.max(state.steer_dir - steerSlew * 2, 0);
+      } else if (state.steer_dir < -0.01) {
+        state.steer_dir = Math.min(state.steer_dir + steerSlew * 2, 0);
+      } else {
+        state.steer_dir = 0;
+      }
+    }
 
     // 주기적으로 서버에 입력값 전송
     if (timestamp - lastSendTime >= config.SEND_INTERVAL_MS) {

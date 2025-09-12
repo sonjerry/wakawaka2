@@ -133,7 +133,9 @@ async def ws_handler(ws: WebSocket):
             # 조향 제어 (시동이 켜져있을 때만)
             if "steer_dir" in data and app.state.engine_running:
                 if app.state.pwm_controller:
-                    steer_angle = data["steer_dir"] * 45
+                    # steer_dir는 -1 ~ 1 범위의 실수값
+                    # 이를 -90도 ~ 90도 범위로 매핑
+                    steer_angle = data["steer_dir"] * 90
                     app.state.pwm_controller.set_servo_angle(steer_angle)
                 continue
             
