@@ -25,6 +25,12 @@ ESC_TRIM_US     = 0    # ESC 트림 조정값
 ESC_ARM_MIN_US  = 1000 # 아밍 시 최소 펄스
 ESC_ARM_MAX_US  = 2000 # 아밍 시 최대 펄스
 
+# ESC 아밍 시퀀스 타이밍 (초)
+ARM_OFF_DELAY_S    = 0.5  # ESC OFF 후 대기 시간
+ARM_MAX_DELAY_S    = 1.0  # MAX 신호 유지 시간
+ARM_MIN_DELAY_S    = 1.0  # MIN 신호 유지 시간
+ARM_NEUTRAL_DELAY_S = 1.0 # 중립 신호 유지 시간
+
 
 # 논리 입력(-1..1)을 물리 ESC 펄스로 변환하기 위한 맵 (Micro ESC 최적화)
 ESC_DEADZONE_NORM   = 0.005  # |명령|<=0.5%면 진짜 중립 펄스 유지 (최소 데드존)

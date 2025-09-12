@@ -54,6 +54,12 @@ async def root():
 async def health():
     return PlainTextResponse("ok")
 
+@app.get("/esc-status")
+async def esc_status():
+    """ESC 현재 상태를 반환하는 디버깅 엔드포인트"""
+    status = hardware.get_esc_status()
+    return status
+
 def _is_braking_now() -> bool:
     """
     현재 사용자가 브레이크를 밟고 있는지 판단합니다.
