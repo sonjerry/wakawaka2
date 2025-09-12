@@ -1,105 +1,112 @@
-# hardware.py
-# Raspberry Pi 5 PWM/Servo/LED controller for WakaWaka
-# Channels: 0=Steer Servo, 1=ESC, 2=Headlight LED, 3=Taillight LED
-# Drop-in for main.py (methods/signatures match main.py usage).
-
+# hardware.py — PCA9685 external PWM driver (drop-in for main.py)
+# Channels: 0=Steer Servo, 1=ESC, 2=Headlight, 3=Taillight
 from __future__ import annotations
 import time
 import logging
 
-try:
-    import pigpio  # precise servo PWM on Raspberry Pi
-    _HAS_PIGPIO = True
-except Exception:
-    pigpio = None
-    _HAS_PIGPIO = False
-
 logger = logging.getLogger(__name__)
 
+# ---- Try PCA9685 first (no pigpio / no pigpiod needed) ----
+_HAS_PCA9685 = False
+try:
+    import board
+    import busio
+    from adafruit_pca9685 import PCA9685
+    _HAS_PCA9685 = True
+except Exception as e:
+    logger.warning(f"PCA9685 import failed: {e}")
+
+# (optional) last-resort dummy fallback
+class _DummyPCA:
+    def __init__(self): pass
+    def deinit(self): pass
+    @property
+    def channels(self):
+        class _C:
+            duty_cycle = 0
+        return [ _C() for _ in range(16) ]
+    @property
+    def frequency(self): return 50
+    @frequency.setter
+    def frequency(self, v): pass
 
 class PWMController:
     """
     Public API expected by main.py:
       - arm_esc()
-      - set_servo_angle(angle_deg: float)     # -90..+90 (A/D 키)
-      - set_esc_speed(speed_pct: float)       # -100..+100 (W/S 키 → axis)
+      - set_servo_angle(angle_deg: float)     # -90..+90 (A/D)
+      - set_esc_speed(speed_pct: float)       # -100..+100 (W/S -> axis)
       - set_headlight(on: bool)
       - emergency_stop()
       - cleanup()
-
-    추가(선택):
-      - set_gear(gear: str)  # 'P','R','N','D'
+      - set_gear(gear: str)  # 'P','R','N','D' (optional but used)
       - set_taillight(on: bool)
     """
 
-    # ===== GPIO 핀 매핑 (필요시 여기만 바꾸면 됨) =====
-    # Pi5 하드웨어 PWM 가능한 핀: 12, 13, 18, 19
-    GPIO_MAP = {
-        0: 12,  # Servo (steer)
-        1: 13,  # ESC (drive)
-        2: 18,  # Headlight LED
-        3: 19,  # Taillight LED
-    }
+    # ===== PCA9685 channel mapping =====
+    CH_STEER = 0
+    CH_ESC = 1
+    CH_HEAD = 2
+    CH_TAIL = 3
 
-    # ===== 펄스/서보 설정 =====
-    PULSE_MIN = 1000  # µs
-    PULSE_MAX = 2000  # µs
-    PULSE_NEU = 1500  # µs
-    SERVO_MIN = 1000  # µs at -90°
-    SERVO_MAX = 2000  # µs at +90°
+    # ===== pulse settings =====
+    PULSE_MIN = 1000  # us
+    PULSE_MAX = 2000  # us
+    PULSE_NEU = 1500  # us
+    SERVO_MIN = 1000  # us at -90°
+    SERVO_MAX = 2000  # us at +90°
 
-    # LED를 단순 ON/OFF로 쓸지, PWM 밝기 제어를 쓸지
-    LED_USE_PWM = False  # True면 PWM 밝기 제어
+    # LEDs: ON/OFF 기본. (PCA9685는 채널 전체 주파수 공유 → 중간 밝기는 50Hz에서 깜빡임 생길 수 있음)
+    LED_USE_PWM = False
+
+    # I2C addr (보통 0x40). 필요하면 환경변수/설정으로 바꾸세요.
+    PCA9685_ADDR = 0x40
+    PCA9685_FREQ = 50  # 50Hz (서보/ESC)
 
     def __init__(self) -> None:
-        self.pi = None
+        self._gear = 'P'
         self._armed = False
-        self._gear = 'P'  # 안전 기본값
+        self._pca = None
 
-        if _HAS_PIGPIO:
+        if _HAS_PCA9685:
             try:
-                self.pi = pigpio.pi()
-                if not self.pi.connected:
-                    raise RuntimeError("pigpio daemon not connected")
-                logger.info("pigpio connected.")
-                self._setup_outputs()
+                i2c = busio.I2C(board.SCL, board.SDA)
+                self._pca = PCA9685(i2c, address=self.PCA9685_ADDR)
+                self._pca.frequency = self.PCA9685_FREQ
+                logger.info(f"PCA9685 connected at 0x{self.PCA9685_ADDR:02X}, {self.PCA9685_FREQ}Hz")
 
-                # 안전 초기화
+                # safe init
                 self._apply_servo_pulse(self.PULSE_NEU)
                 self._apply_esc_pulse(self.PULSE_NEU)
-                self._set_led(self.GPIO_MAP[2], False)  # head off
-                self._set_led(self.GPIO_MAP[3], True)   # tail parking on (선호에 맞게 조정)
+                self._set_led(self.CH_HEAD, False)  # head off
+                self._set_led(self.CH_TAIL, True)   # tail parking on
             except Exception as e:
-                logger.error(f"pigpio init failed: {e}. Using dummy fallback.")
-                self._fallback_init()
+                logger.error(f"PCA9685 init failed: {e}. Using dummy fallback.")
+                self._pca = _DummyPCA()
         else:
-            self._fallback_init()
+            logger.warning("PCA9685 library unavailable; using dummy (no hardware driven).")
+            self._pca = _DummyPCA()
 
-    # ========== Public API (main.py가 직접 호출) ==========
-
+    # ========= public API =========
     def arm_esc(self) -> None:
-        """ESC 시동 준비: 중립 펄스로 안정화."""
-        logger.info("Arming ESC...")
+        logger.info("Arming ESC (neutral hold)...")
         self._apply_esc_pulse(self.PULSE_NEU)
         time.sleep(1.0)
         self._armed = True
-        logger.info("ESC armed (neutral).")
+        logger.info("ESC armed.")
 
     def set_servo_angle(self, angle_deg: float) -> None:
-        """-90..+90도를 1000..2000µs로 선형 매핑."""
         angle = max(-90.0, min(90.0, float(angle_deg)))
         span = self.SERVO_MAX - self.SERVO_MIN
         pulse = int(self.SERVO_MIN + (angle + 90.0) / 180.0 * span)
-        logger.debug(f"Servo {angle_deg:.1f}° -> {pulse}us")
         self._apply_servo_pulse(pulse)
 
     def set_esc_speed(self, speed_pct: float) -> None:
         """
-        입력: -100..+100 (axis 기반: +가속, -브레이크).
-        기어 규칙 (내연기관 흐름 반영):
-          - P/N : 항상 1500µs 유지 (토크 없음)
-          - D   : axis>0만 가속, 1500..2000µs / axis<=0은 감속 → 1500µs
-          - R   : axis>0만 가속, 1500..1000µs / axis<=0은 감속 → 1500µs
+        speed_pct: -100..+100, but gear rules restrict direction:
+          - P/N : always neutral
+          - D   : v>0 → 1500..2000us, v<=0 → 1500us (no reverse)
+          - R   : v>0 → 1500..1000us, v<=0 → 1500us (no forward)
         """
         v = float(speed_pct)
         g = self._gear
@@ -107,22 +114,15 @@ class PWMController:
         if not self._armed or g in ('P', 'N'):
             pulse = self.PULSE_NEU
         elif g == 'D':
-            if v > 0:
-                pulse = self._map_forward(v)    # 0..100 → 1500..2000
-            else:
-                pulse = self.PULSE_NEU          # 브레이크 → 역토크/후진 금지
+            pulse = self._map_forward(v) if v > 0 else self.PULSE_NEU
         elif g == 'R':
-            if v > 0:
-                pulse = self._map_reverse(v)    # 0..100 → 1500..1000
-            else:
-                pulse = self.PULSE_NEU          # 브레이크 → 전진 금지
+            pulse = self._map_reverse(v) if v > 0 else self.PULSE_NEU
         else:
             pulse = self.PULSE_NEU
 
-        logger.debug(f"ESC cmd {speed_pct:.1f}% in {g} -> {pulse}us")
         self._apply_esc_pulse(pulse)
 
-        # 선택: 브레이크/후진 시 테일라이트 힌트
+        # brake/neutral hint on tail
         try:
             braking = (g == 'D' and v <= 0) or (g == 'R' and v <= 0)
             self._set_taillight_brightness(100 if braking else 40)
@@ -130,30 +130,32 @@ class PWMController:
             pass
 
     def set_headlight(self, on: bool) -> None:
-        self._set_led(self.GPIO_MAP[2], bool(on))
+        self._set_led(self.CH_HEAD, bool(on))
+
+    def set_taillight(self, on: bool) -> None:
+        self._set_led(self.CH_TAIL, bool(on))
 
     def emergency_stop(self) -> None:
-        """즉시 중립/안전 상태."""
         logger.warning("EMERGENCY STOP!")
         self._apply_esc_pulse(self.PULSE_NEU)
         self._apply_servo_pulse(self.PULSE_NEU)
-        self._set_led(self.GPIO_MAP[2], False)  # head off
-        self._set_led(self.GPIO_MAP[3], True)   # tail parking on
+        self._set_led(self.CH_HEAD, False)
+        self._set_led(self.CH_TAIL, True)
         self._armed = False
 
     def cleanup(self) -> None:
         logger.info("PWMController cleanup.")
-        if self.pi:
+        try:
+            self._apply_esc_pulse(self.PULSE_NEU)
+            self._apply_servo_pulse(self.PULSE_NEU)
+            self._set_led(self.CH_HEAD, False)
+            self._set_led(self.CH_TAIL, False)
+        finally:
             try:
-                self._apply_esc_pulse(self.PULSE_NEU)
-                self._apply_servo_pulse(self.PULSE_NEU)
-                self._set_led(self.GPIO_MAP[2], False)
-                self._set_led(self.GPIO_MAP[3], False)
-            finally:
-                self.pi.stop()
-                self.pi = None
-
-    # ========== Optional: 기어 전달 API (권장) ==========
+                if self._pca and hasattr(self._pca, "deinit"):
+                    self._pca.deinit()
+            except Exception:
+                pass
 
     def set_gear(self, gear: str) -> None:
         g = (gear or '').upper()
@@ -162,63 +164,46 @@ class PWMController:
             return
         logger.info(f"Gear -> {g}")
         self._gear = g
-        # P/N 전환 시 즉시 중립으로 안전화
         if g in ('P', 'N'):
             self._apply_esc_pulse(self.PULSE_NEU)
 
-    def set_taillight(self, on: bool) -> None:
-        self._set_led(self.GPIO_MAP[3], bool(on))
+    # ========= helpers =========
+    def _period_us(self) -> float:
+        return 1_000_000.0 / float(self.PCA9685_FREQ)  # ~20000us at 50Hz
 
-    # ========== 내부 헬퍼 ==========
-
-    def _setup_outputs(self) -> None:
-        self.pi.set_mode(self.GPIO_MAP[0], pigpio.OUTPUT)
-        self.pi.set_mode(self.GPIO_MAP[1], pigpio.OUTPUT)
-        self.pi.set_mode(self.GPIO_MAP[2], pigpio.OUTPUT)
-        self.pi.set_mode(self.GPIO_MAP[3], pigpio.OUTPUT)
+    def _us_to_duty(self, pulse_us: int) -> int:
+        # Adafruit lib uses 16-bit duty_cycle (0..65535)
+        period = self._period_us()
+        duty = int(max(0, min(65535, round((pulse_us / period) * 65535))))
+        return duty
 
     def _apply_servo_pulse(self, pulse_us: int) -> None:
-        if self.pi:
-            self.pi.set_servo_pulsewidth(self.GPIO_MAP[0], int(pulse_us))
-        else:
-            logger.debug(f"[dummy] servo -> {pulse_us}us")
+        duty = self._us_to_duty(int(pulse_us))
+        self._pca.channels[self.CH_STEER].duty_cycle = duty
 
     def _apply_esc_pulse(self, pulse_us: int) -> None:
-        if self.pi:
-            self.pi.set_servo_pulsewidth(self.GPIO_MAP[1], int(pulse_us))
-        else:
-            logger.debug(f"[dummy] esc -> {pulse_us}us")
+        duty = self._us_to_duty(int(pulse_us))
+        self._pca.channels[self.CH_ESC].duty_cycle = duty
 
-    def _set_led(self, gpio: int, on: bool) -> None:
-        if self.pi:
-            if self.LED_USE_PWM:
-                duty = 255 if on else 0
-                self.pi.set_PWM_dutycycle(gpio, duty)
-            else:
-                self.pi.write(gpio, 1 if on else 0)
+    def _set_led(self, ch: int, on: bool) -> None:
+        if self.LED_USE_PWM:
+            self._pca.channels[ch].duty_cycle = 65535 if on else 0
         else:
-            logger.debug(f"[dummy] gpio {gpio} -> {'ON' if on else 'OFF'}")
+            # ON=100% (no flicker), OFF=0%
+            self._pca.channels[ch].duty_cycle = 65535 if on else 0
 
     def _set_taillight_brightness(self, percent: int) -> None:
         percent = max(0, min(100, int(percent)))
-        gpio = self.GPIO_MAP[3]
-        if self.pi and self.LED_USE_PWM:
-            duty = int(255 * (percent / 100.0))
-            self.pi.set_PWM_dutycycle(gpio, duty)
+        if self.LED_USE_PWM:
+            duty = int(round(65535 * (percent / 100.0)))
+            self._pca.channels[self.CH_TAIL].duty_cycle = duty
         else:
-            # PWM 안 쓰면 50% 기준으로 ON/OFF
-            self._set_led(gpio, percent >= 50)
+            self._set_led(self.CH_TAIL, percent >= 50)
 
     def _map_forward(self, v_pct: float) -> int:
-        # 0..100 → 1500..2000µs
         v = max(0.0, min(100.0, v_pct))
         return int(self.PULSE_NEU + (v / 100.0) * (self.PULSE_MAX - self.PULSE_NEU))
 
     def _map_reverse(self, v_pct: float) -> int:
-        # 0..100 → 1500..1000µs (후진)
         v = max(0.0, min(100.0, v_pct))
         return int(self.PULSE_NEU - (v / 100.0) * (self.PULSE_NEU - self.PULSE_MIN))
-
-    def _fallback_init(self) -> None:
-        self.pi = None
-        logger.warning("pigpio not available; running in dummy mode (no hardware driven).")
