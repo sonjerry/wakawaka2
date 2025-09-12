@@ -10,6 +10,9 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
+# hardware.py에서 PWM 컨트롤러 import
+from hardware import PWMController
+
 # 로깅 설정
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -22,6 +25,8 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 # FastAPI의 app.state를 사용하여 애플리케이션의 생명주기 동안 상태를 안전하게 관리합니다.
 app.state.controller = None  # 현재 연결된 웹소켓 클라이언트
 app.state.tick_task = None  # 메인 제어 루프 태스크
+app.state.pwm_controller = None  # PWM 하드웨어 컨트롤러
+app.state.engine_running = False  # 시동 상태 (on/off)
 
 # --- 클라이언트 입력 상태 ---
 # 웹소켓을 통해 들어온 최신 입력값을 저장합니다.
@@ -96,6 +101,76 @@ async def ws_handler(ws: WebSocket):
                 await ws.send_text(json.dumps({"pong": data["ping"]}))
                 continue
 
+            # 시동 버튼 처리 (on/off 토글)
+            if "engine_toggle" in data:
+                if not app.state.engine_running:
+                    # 시동 켜기
+                    if app.state.pwm_controller:
+                        app.state.pwm_controller.arm_esc()
+                        app.state.engine_running = True
+                        await ws.send_text(json.dumps({
+                            "engine_running": True,
+                            "gear": "P",  # 시동 시 P단으로 설정
+                            "message": "시동이 켜졌습니다. ESC 준비 중..."
+                        }))
+                    else:
+                        await ws.send_text(json.dumps({
+                            "engine_running": False,
+                            "message": "하드웨어 컨트롤러가 초기화되지 않았습니다."
+                        }))
+                else:
+                    # 시동 끄기
+                    if app.state.pwm_controller:
+                        app.state.pwm_controller.emergency_stop()
+                    app.state.engine_running = False
+                    await ws.send_text(json.dumps({
+                        "engine_running": False,
+                        "gear": "P",  # 시동 끄기 시 P단으로 설정
+                        "message": "시동이 꺼졌습니다."
+                    }))
+                continue
+            
+            # 조향 제어 (시동이 켜져있을 때만)
+            if "steer_dir" in data and app.state.engine_running:
+                if app.state.pwm_controller:
+                    # steer_dir: -1(좌), 0(중앙), 1(우)를 각도로 변환
+                    # -1: -45도, 0: 0도, 1: 45도 (적당한 조향 범위)
+                    steer_angle = data["steer_dir"] * 45
+                    app.state.pwm_controller.set_servo_angle(steer_angle)
+                continue
+            
+            
+            # 스로틀 제어 (시동이 켜져있을 때만)
+            if "axis" in data and app.state.engine_running:
+                if app.state.pwm_controller:
+                    speed = data["axis"]  # -50 ~ 50 범위를 -100 ~ 100으로 변환
+                    speed = speed * 2  # -100 ~ 100으로 변환
+                    app.state.pwm_controller.set_esc_speed(speed)
+                continue
+            
+            # 전조등 제어 (시동이 켜져있을 때만)
+            if "head_toggle" in data and app.state.engine_running:
+                if app.state.pwm_controller:
+                    # 현재 상태를 토글 (간단한 상태 관리)
+                    current_state = getattr(app.state, 'headlight_on', False)
+                    new_state = not current_state
+                    app.state.headlight_on = new_state
+                    app.state.pwm_controller.set_headlight(new_state)
+                    await ws.send_text(json.dumps({
+                        "head_on": new_state,
+                        "message": f"전조등: {'켜짐' if new_state else '꺼짐'}"
+                    }))
+                continue
+            
+            # 기어 변경 (시동이 켜져있을 때만)
+            if "gear" in data and app.state.engine_running:
+                # 기어 변경 로직 (필요시 추가)
+                await ws.send_text(json.dumps({
+                    "gear": data["gear"],
+                    "message": f"기어 변경: {data['gear']}"
+                }))
+                continue
+            
             # 핑/퐁 외의 입력은 무시
                         
     except WebSocketDisconnect:
@@ -110,7 +185,14 @@ async def ws_handler(ws: WebSocket):
 async def lifespan(app: FastAPI):
     """애플리케이션 시작/종료 시 호출되는 생명주기 관리 함수"""
     logging.info("애플리케이션 시작...")
-    # 하드웨어 초기화 제거
+    
+    # PWM 하드웨어 컨트롤러 초기화
+    try:
+        app.state.pwm_controller = PWMController()
+        logging.info("PWM 하드웨어 컨트롤러 초기화 완료")
+    except Exception as e:
+        logging.error(f"PWM 하드웨어 컨트롤러 초기화 실패: {e}")
+        app.state.pwm_controller = None
 
     # 메인 제어 루프를 백그라운드 태스크로 시작
     app.state.tick_task = asyncio.create_task(tick_loop())
@@ -126,7 +208,10 @@ async def lifespan(app: FastAPI):
             except asyncio.CancelledError:
                 logging.info("Tick 루프가 정상적으로 취소되었습니다.")
         
-        # 하드웨어 종료 절차 제거
+        # PWM 하드웨어 컨트롤러 정리
+        if app.state.pwm_controller:
+            app.state.pwm_controller.cleanup()
+            logging.info("PWM 하드웨어 컨트롤러 정리 완료")
 
 app.router.lifespan_context = lifespan
 

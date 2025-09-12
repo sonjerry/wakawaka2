@@ -139,10 +139,10 @@ class PWMController:
     def emergency_stop(self):
         """비상정지"""
         self.pwm_objects['esc'].ChangeDutyCycle(self.esc_min)
-        self.set_servo_angle(0)  # 조향 중앙으로
+        self.set_servo_angle(0)  # 조향 중앙으로 복귀
         self.esc_ready = False
         self.esc_armed = False
-        print("비상정지 실행!")
+        print("비상정지 실행! 조향 중앙 복귀 완료")
     
     def cleanup(self):
         """리소스 정리"""
