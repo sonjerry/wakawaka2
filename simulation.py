@@ -47,7 +47,7 @@ class VehicleModel:
         self.sport_mode_on = False
         self.engine_running = False
         self.engine_cranking_timer = 0.0
-        
+
         # --- 입력 상태 ---
         self.axis = 0.0  # -50..50 원본 입력
         self.axis_prev = 0.0  # 이전 프레임 입력 (슬루 제한용)
@@ -77,7 +77,7 @@ class VehicleModel:
         
         # --- 파라미터 로드 ---
         self._load_parameters()
-        
+
     def _load_parameters(self):
         """config.py에서 파라미터를 로드합니다."""
         # 기어비 및 토크 스케일
@@ -120,7 +120,7 @@ class VehicleModel:
         self.input_slew_limit = config.INPUT_SLEW_LIMIT
         self.throttle_delay_rpm = config.THROTTLE_DELAY_RPM
         
-        # 기존 호환성
+        # RPM 설정
         self.RPM_MAX = config.RPM_SCALE_MAX
         self.RPM_IDLE = config.RPM_IDLE_VALUE / self.RPM_MAX
         self.RPM_CREEP = config.RPM_CREEP_VALUE / self.RPM_MAX
@@ -129,30 +129,18 @@ class VehicleModel:
         
         # 물리 파라미터
         self.AXIS_DEADZONE = config.AXIS_DEADZONE_UNITS
-        self.SHIFT_DELAY = config.SHIFT_DURATION_S
         self.ENGINE_INERTIA = config.ENGINE_INERTIA
-        self.SHIFT_HYST = config.SHIFT_HYSTERESIS_PCT
         
-        # 가속/감속 및 저항 계수 (기존 호환성)
+        # 가속/감속 및 저항 계수
         self.A_POS = 0.2
         self.A_NEG = 0.3
         self.D0 = 0.030
         self.D1 = 0.10
         self.D2 = 0.18
         self.MASS_K = 2.0
-        
-        # 크리프 현상 파라미터
-        self.CREEP_A = 0.05
-        self.V_EPS = 0.01
-        
+
         # 스포츠 모드 파라미터
         self.SPORT_POS_SCALE = 1.6
-        
-        # 헌팅 방지 파라미터
-        self.SHIFT_LOCK_S = max(0.15, self.SHIFT_DELAY)
-        self.SHIFT_DWELL_S = 0.60
-        self.DWELL_UP_EXTRA = 3.0
-        self.SPEED_SMOOTH_TAU = 0.30
 
     # --------- Public API (main.py에서 호출) ---------
     def update(self, dt: float, inputs: dict):
@@ -161,15 +149,7 @@ class VehicleModel:
         self._update_engine_state(dt)
         self._update_steering(dt, inputs)
         self._apply_gear_change(inputs)
-        
-        # D 기어에서만 새로운 변속기 시스템 사용
-        if self.gear == "D":
-            self._update_gearbox_system(dt)
-        else:
-            self._update_legacy_system(dt)
-        
-        # 기존 호환성을 위한 속도 스무딩
-        self._update_speed_smoothing(dt)
+        self._update_vehicle_system(dt)
 
     def get_state_snapshot(self, inputs: dict = None) -> dict:
         """웹 클라이언트에 보낼 현재 상태 딕셔너리를 반환합니다."""
@@ -191,11 +171,11 @@ class VehicleModel:
         is_moving = self.gear in ('D', 'R')
         tail_brightness = 1.0 if (braking and is_moving) else (0.5 if self.head_on else 0.0)
 
-        # 새로운 토크 제어 시스템 사용
+        # ESC 출력 계산
         if self.gear == "D":
             esc_output = self.torque_cmd / 100.0  # %를 -1..1로 변환
         else:
-            # 기존 시스템 (R, P, N)
+            # R, P, N 기어는 기존 방식
             esc_output = self.wheel_speed
         
         # 엔진이 꺼져있으면 ESC 출력은 0
@@ -255,7 +235,7 @@ class VehicleModel:
         max_step = float(getattr(config, "STEER_SPEED_US_PER_S", 1000.0)) * dt
         d = self.steer_target_us - self.steer_cur_us
         self.steer_cur_us += clamp(d, -max_step, max_step)
-
+        
     def _apply_gear_change(self, inputs: dict):
         """기어 변경을 처리합니다."""
         new_gear = inputs.get("gear")
@@ -282,101 +262,68 @@ class VehicleModel:
         self.shift_direction = 0
         self.shift_target_gear = self.virtual_gear
 
-    def _update_gearbox_system(self, dt: float):
-        """새로운 8단 변속기 시스템을 업데이트합니다."""
+    def _update_vehicle_system(self, dt: float):
+        """통합된 차량 시스템을 업데이트합니다."""
         # 1. 속도 추정기 업데이트
         self._update_speed_estimator(dt)
         
         # 2. vRPM 계산
         self._update_vrpm()
         
-        # 3. 변속 스케줄링
-        self._update_shift_scheduling()
+        # 3. D 기어에서만 변속 스케줄링
+        if self.gear == "D":
+            self._update_shift_scheduling()
+            self._update_shift_state_machine(dt)
         
-        # 4. 변속 상태기계 업데이트
-        self._update_shift_state_machine(dt)
-        
-        # 5. 토크 제어
+        # 4. 토크 제어
         self._update_torque_control(dt)
         
-        # 6. 물리 시뮬레이션 (기존 호환성)
+        # 5. 물리 시뮬레이션
         self._update_physics(dt)
-
-    def _update_legacy_system(self, dt: float):
-        """기존 시스템 (R, P, N)을 업데이트합니다."""
-        # 기존 로직 유지
-        u = clamp(self.axis / 50.0, -1.0, 1.0)
-        a_cmd = (self.A_POS * u) if u >= 0.0 else (-self.A_NEG * (-u))
-
-        if self.sport_mode_on and u > 0:
-            a_cmd *= self.SPORT_POS_SCALE
-
-        if self.gear in ("P", "N"):
-            a_cmd = 0.0
-            if abs(self.wheel_speed) > 0.0:
-                self.wheel_speed -= math.copysign(min(abs(self.wheel_speed), 4.0 * dt), self.wheel_speed)
-        elif self.gear == "R":
-            a_cmd = -abs(a_cmd)
         
-        if self.gear in ("D", "R") and abs(self.axis) < self.AXIS_DEADZONE:
-            a_cmd = 0.0
-            current_speed_pct = abs(self.wheel_speed) * 100
-            if current_speed_pct < 2.0:
-                creep_target = 1.5 / 100.0
-                if self.gear == "D":
-                    self.wheel_speed = clamp(self.wheel_speed + self.CREEP_A * dt, 0.0, creep_target)
-                elif self.gear == "R":
-                    self.wheel_speed = clamp(self.wheel_speed - self.CREEP_A * dt, -creep_target, 0.0)
-
-        v = self.wheel_speed
-        drag = (self.D0 * math.copysign(1, v)) + (self.D1 * v) + (self.D2 * v * abs(v))
-        a = (a_cmd - drag) * self.MASS_K
-        self.wheel_speed = clamp(self.wheel_speed + a * dt, -1.0, 1.0)
-        
-        if (self.gear == "D" and self.wheel_speed < 0.0) or \
-           (self.gear == "R" and self.wheel_speed > 0.0):
-            self.wheel_speed = 0.0
-
-        # 기존 RPM 계산
-        self._update_legacy_rpm(dt, a_cmd)
+        # 6. RPM 정규화 업데이트 (UI용)
+        self._update_rpm_normalization()
 
     def _update_speed_estimator(self, dt: float):
         """속도 추정기를 업데이트합니다."""
-        # 스로틀 의도를 속도 명령으로 변환
-        speed_demand = self.throttle_intent * 10.0  # 최대 10 m/s
+        # 스로틀 의도를 속도 명령으로 변환 (브레이크는 별도 처리)
+        if self.brake_intent > 0.0:
+            # 브레이크 입력: 속도를 감소시킴
+            speed_demand = -self.brake_intent * 5.0  # 최대 5 m/s 감속
+        else:
+            # 스로틀 입력: 속도를 증가시킴
+            speed_demand = self.throttle_intent * 10.0  # 최대 10 m/s
         
         # 1차 지연 필터
         alpha = clamp(dt / (1.0 / self.speed_estimator_gamma), 0.0, 1.0)
         self.speed_est = (1 - alpha) * self.speed_est + alpha * speed_demand
         
-        # 바퀴 속도로 변환 (기존 호환성)
+        # 바퀴 속도로 변환
         self.wheel_speed = clamp(self.speed_est / 10.0, -1.0, 1.0)
 
     def _update_vrpm(self):
         """vRPM을 계산합니다."""
         if not self.engine_running:
             self.vrpm = 0.0
-            self.vrpm_norm = 0.0
             return
         
         # 바퀴 각속도 계산 (rad/s)
         wheel_rad_s = self.speed_est / self.wheel_radius
         
-        # 현재 기어의 기어비 적용
-        if 1 <= self.virtual_gear <= 8:
+        if self.gear == "D" and 1 <= self.virtual_gear <= 8:
+            # D 기어: 기어비 적용
             gear_ratio = self.gear_ratios[self.virtual_gear - 1]
             total_ratio = gear_ratio * self.final_drive
-            
-            # vRPM 계산
             self.vrpm = wheel_rad_s * total_ratio * 60.0 / (2.0 * math.pi)
+        elif self.gear == "R":
+            # R 기어: 고정 기어비
+            self.vrpm = wheel_rad_s * 3.0 * 60.0 / (2.0 * math.pi)  # R 기어는 3.0 기어비 가정
         else:
-            self.vrpm = 0.0
+            # P, N 기어: IDLE RPM
+            self.vrpm = self.vrpm_idle
         
         # 하한 적용
         self.vrpm = max(self.vrpm, self.vrpm_idle)
-        
-        # 정규화 (UI용)
-        self.vrpm_norm = clamp(self.vrpm / self.RPM_MAX, 0.0, 1.0)
 
     def _update_shift_scheduling(self):
         """변속 스케줄링을 처리합니다."""
@@ -469,18 +416,23 @@ class VehicleModel:
         
         # 2. 브레이크 우선
         if self.brake_intent > 0.0:
-            self.torque_cmd = -self.brake_intent * self.max_brake_torque
+            # D 기어에서는 브레이크 시 토크를 0으로 설정 (후진 방지)
+            # R 기어에서는 후진 토크 허용
+            if self.gear == "D":
+                self.torque_cmd = 0.0
+            else:
+                self.torque_cmd = -self.brake_intent * self.max_brake_torque
             return
         
-        # 3. 변속 중 토크 제어
-        if self.shift_state != ShiftState.READY:
+        # 3. 변속 중 토크 제어 (D 기어에서만)
+        if self.gear == "D" and self.shift_state != ShiftState.READY:
             self.torque_cmd = self._calculate_shift_torque()
             return
         
         # 4. 기본 토크 계산
         base_torque = self._calculate_base_torque()
         
-        # 5. 크리프 토크
+        # 5. 크리프 토크 (D 기어에서만)
         creep_torque = self._calculate_creep_torque()
         
         # 6. 엔진 브레이크
@@ -488,7 +440,14 @@ class VehicleModel:
         
         # 7. 최종 토크 명령
         self.torque_cmd = base_torque + creep_torque + drag_torque
-        self.torque_cmd = clamp(self.torque_cmd, -100.0, 100.0)
+        
+        # 8. 기어별 제한 적용
+        if self.gear == "D":
+            self.torque_cmd = clamp(self.torque_cmd, 0.0, 100.0)  # D 기어: 양수만
+        elif self.gear == "R":
+            self.torque_cmd = clamp(self.torque_cmd, -100.0, 0.0)  # R 기어: 음수만
+        else:
+            self.torque_cmd = 0.0  # P, N 기어: 토크 없음
 
     def _calculate_shift_torque(self) -> float:
         """변속 중 토크를 계산합니다."""
@@ -512,15 +471,18 @@ class VehicleModel:
 
     def _calculate_base_torque(self) -> float:
         """기본 토크를 계산합니다."""
-        if not (1 <= self.virtual_gear <= 8):
+        if self.gear == "D" and 1 <= self.virtual_gear <= 8:
+            gear_scale = self.gear_torque_scale[self.virtual_gear - 1]
+            return self.throttle_intent * 100.0 * gear_scale
+        elif self.gear == "R":
+            return -self.throttle_intent * 100.0  # R 기어는 음수 토크
+        else:
             return 0.0
-        
-        gear_scale = self.gear_torque_scale[self.virtual_gear - 1]
-        return self.throttle_intent * 100.0 * gear_scale
 
     def _calculate_creep_torque(self) -> float:
         """크리프 토크를 계산합니다."""
-        if (self.throttle_intent == 0.0 and 
+        if (self.gear == "D" and 
+            self.throttle_intent == 0.0 and 
             self.brake_intent == 0.0 and 
             self.speed_est < self.creep_release_speed):
             return self.creep_torque
@@ -532,9 +494,11 @@ class VehicleModel:
             self.brake_intent == 0.0 and 
             self.speed_est > 0.1):
             
-            if 1 <= self.virtual_gear <= 8:
+            if self.gear == "D" and 1 <= self.virtual_gear <= 8:
                 drag_scale = self.gear_drag_scale[self.virtual_gear - 1]
                 return -self.max_drag_torque * drag_scale
+            elif self.gear == "R":
+                return -self.max_drag_torque * 0.5  # R 기어는 절반 드래그
         return 0.0
 
     def _update_physics(self, dt: float):
@@ -551,29 +515,21 @@ class VehicleModel:
         
         # 최종 가속도
         a = (a_cmd - drag) * self.MASS_K
-        self.wheel_speed = clamp(self.wheel_speed + a * dt, -1.0, 1.0)
+        new_wheel_speed = self.wheel_speed + a * dt
+        
+        # 기어별 방향 제한
+        if self.gear == "D":
+            new_wheel_speed = max(0.0, new_wheel_speed)  # D 기어: 전진만
+        elif self.gear == "R":
+            new_wheel_speed = min(0.0, new_wheel_speed)  # R 기어: 후진만
+        
+        self.wheel_speed = clamp(new_wheel_speed, -1.0, 1.0)
 
-    def _update_legacy_rpm(self, dt: float, a_cmd: float):
-        """기존 RPM 계산 (R, P, N용)"""
+    def _update_rpm_normalization(self):
+        """RPM을 정규화하여 UI에 전달합니다."""
         if not self.engine_running:
+            self.vrpm_norm = 0.0
             return
         
-        v_abs = abs(self.wheel_speed)
-        base_rpm = self.RPM_IDLE
-        if self.gear in ("D", "R"):
-            base_rpm = lerp(self.RPM_CREEP, self.RPM_FUELCUT, v_abs)
-        
-        slew_rate = 0.5 if a_cmd > 0 else 0.8
-        target_rpm = max(base_rpm, v_abs * self.RPM_FUELCUT * (1 + a_cmd * slew_rate))
-        
-        alpha = clamp(dt / self.ENGINE_INERTIA, 0.0, 1.0)
-        self.vrpm_norm = lerp(self.vrpm_norm, target_rpm, alpha)
-        
-        rpm_limit = self.RPM_R_MAX_R if self.gear == "R" else self.RPM_FUELCUT
-        self.vrpm_norm = clamp(self.vrpm_norm, self.RPM_IDLE, rpm_limit)
-
-    def _update_speed_smoothing(self, dt: float):
-        """속도 스무딩 (기존 호환성)"""
-        sp_now = abs(self.wheel_speed) * 100.0
-        alpha = clamp(dt / self.SPEED_SMOOTH_TAU, 0.0, 1.0)
-        # v_smooth는 기존 호환성을 위해 유지하지만 실제로는 사용하지 않음
+        # vRPM을 0..1 범위로 정규화
+        self.vrpm_norm = clamp(self.vrpm / self.RPM_MAX, 0.0, 1.0)

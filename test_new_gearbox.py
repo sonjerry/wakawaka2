@@ -5,7 +5,7 @@
 import sys
 import time
 import config
-from simulation import VehicleModel
+from simulation import VehicleModel, ShiftState
 
 def test_gearbox_system():
     """변속기 시스템을 테스트합니다."""
@@ -18,6 +18,7 @@ def test_gearbox_system():
     vehicle.virtual_gear = 1
     
     print(f"초기 상태: 기어={vehicle.virtual_gear}, vRPM={vehicle.vrpm:.0f}, 속도={vehicle.speed_est:.2f}m/s")
+    print(f"입력 처리: axis={vehicle.axis}, throttle={vehicle.throttle_intent:.2f}, brake={vehicle.brake_intent:.2f}")
     
     # 테스트 시나리오: 가속하여 변속 테스트
     dt = 0.01  # 100Hz
@@ -29,8 +30,8 @@ def test_gearbox_system():
         
         if i % 50 == 0:  # 0.5초마다 출력
             print(f"t={i*dt:.1f}s: 기어={vehicle.virtual_gear}, vRPM={vehicle.vrpm:.0f}, "
-                  f"속도={vehicle.speed_est:.2f}m/s, 토크={vehicle.torque_cmd:.1f}%, "
-                  f"변속상태={vehicle.shift_state.value}")
+                  f"속도={vehicle.speed_est:.2f}m/s, wheel_speed={vehicle.wheel_speed:.3f}, "
+                  f"토크={vehicle.torque_cmd:.1f}%, 변속상태={vehicle.shift_state.value}")
     
     print("\n=== 브레이크 테스트 ===")
     for i in range(200):  # 2초간
@@ -39,8 +40,8 @@ def test_gearbox_system():
         
         if i % 20 == 0:  # 0.2초마다 출력
             print(f"t={i*dt:.1f}s: 기어={vehicle.virtual_gear}, vRPM={vehicle.vrpm:.0f}, "
-                  f"속도={vehicle.speed_est:.2f}m/s, 토크={vehicle.torque_cmd:.1f}%, "
-                  f"변속상태={vehicle.shift_state.value}")
+                  f"속도={vehicle.speed_est:.2f}m/s, wheel_speed={vehicle.wheel_speed:.3f}, "
+                  f"토크={vehicle.torque_cmd:.1f}%, 변속상태={vehicle.shift_state.value}")
     
     print("\n=== 크리프 테스트 (페달 해제) ===")
     for i in range(100):  # 1초간
@@ -49,8 +50,8 @@ def test_gearbox_system():
         
         if i % 20 == 0:  # 0.2초마다 출력
             print(f"t={i*dt:.1f}s: 기어={vehicle.virtual_gear}, vRPM={vehicle.vrpm:.0f}, "
-                  f"속도={vehicle.speed_est:.2f}m/s, 토크={vehicle.torque_cmd:.1f}%, "
-                  f"변속상태={vehicle.shift_state.value}")
+                  f"속도={vehicle.speed_est:.2f}m/s, wheel_speed={vehicle.wheel_speed:.3f}, "
+                  f"토크={vehicle.torque_cmd:.1f}%, 변속상태={vehicle.shift_state.value}")
 
 def test_gear_ratios():
     """기어비를 테스트합니다."""
@@ -82,7 +83,7 @@ def test_shift_timing():
     for i in range(1000):  # 10초간
         vehicle.update(0.01, inputs)
         
-        if vehicle.shift_state != vehicle.shift_state.READY and shift_count < 3:
+        if vehicle.shift_state != ShiftState.READY and shift_count < 3:
             print(f"변속 #{shift_count + 1}: {vehicle.shift_state.value} "
                   f"(기어 {vehicle.virtual_gear} → {vehicle.shift_target_gear})")
             shift_count += 1

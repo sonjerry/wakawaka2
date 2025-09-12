@@ -96,8 +96,6 @@ RPM_CREEP_VALUE     = 1100.0
 RPM_FUEL_CUT_VALUE  = 7000.0
 REVERSE_RPM_MAX_VALUE = 4000.0
 
-SHIFT_DURATION_S    = 0.25     # 변속 시뮬레이션 시간 (토크컷)
-SHIFT_HYSTERESIS_PCT = 4.0     # 변속 헌팅 방지용 히스테리시스 (%)
 CRANKING_DURATION_S = 0.8    # 시동 거는 시간
 ENGINE_INERTIA      = 0.28   # 가상 엔진의 관성
 
