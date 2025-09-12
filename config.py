@@ -21,15 +21,15 @@ ESC_NEUTRAL_US  = 1500 # ESC 중립값 (실제 중립점 - 모터가 정지하�
 ESC_MAX_US      = 2200 # ESC 최대값 (전진 - 최대 속도) - 더 넓은 범위
 ESC_TRIM_US     = 0    # ESC 트림 조정값
 
-# ESC 아밍을 위한 특별한 펄스값들 (확장된 ESC 아밍 범위)
-ESC_ARM_MIN_US  = 800  # 아밍 시 최소 펄스
-ESC_ARM_MAX_US  = 2200 # 아밍 시 최대 펄스
+# ESC 아밍을 위한 특별한 펄스값들 (표준 ESC 아밍 범위)
+ESC_ARM_MIN_US  = 1000 # 아밍 시 최소 펄스 (표준 범위)
+ESC_ARM_MAX_US  = 2000 # 아밍 시 최대 펄스 (표준 범위)
 
 # ESC 아밍 시퀀스 타이밍 (초)
-ARM_OFF_DELAY_S    = 0.5  # ESC OFF 후 대기 시간
-ARM_MAX_DELAY_S    = 0.2  # MAX 신호 유지 시간
-ARM_MIN_DELAY_S    = 0.2  # MIN 신호 유지 시간
-ARM_NEUTRAL_DELAY_S = 0.2 # 중립 신호 유지 시간
+ARM_OFF_DELAY_S    = 1.0  # ESC OFF 후 대기 시간 (더 길게)
+ARM_MAX_DELAY_S    = 1.0  # MAX 신호 유지 시간 (더 길게)
+ARM_MIN_DELAY_S    = 1.0  # MIN 신호 유지 시간 (더 길게)
+ARM_NEUTRAL_DELAY_S = 1.0 # 중립 신호 유지 시간 (더 길게)
 
 
 # 논리 입력(-1..1)을 물리 ESC 펄스로 변환하기 위한 맵 (Micro ESC 최적화)
