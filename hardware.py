@@ -20,11 +20,11 @@ except ImportError:
     print("경고: RPi.GPIO 모듈을 찾을 수 없습니다. 시뮬레이션 모드로 실행됩니다.")
 
 try:
-    import pigpio
-    PIGPIO_AVAILABLE = True
+    import rpigpio
+    RPI_GPIO_AVAILABLE = True
 except ImportError:
-    PIGPIO_AVAILABLE = False
-    print("경고: pigpio 모듈을 찾을 수 없습니다. RPi.GPIO를 사용합니다.")
+    RPI_GPIO_AVAILABLE = False
+    print("경고: rpigpio 모듈을 찾을 수 없습니다. RPi.GPIO를 사용합니다.")
 
 
 class MotorState(Enum):
@@ -67,7 +67,7 @@ class ESCController:
         
         # PWM 객체
         self.pwm = None
-        self.pi = None
+        self.rpi_gpio = None
         
         # 로깅 설정
         self.logger = logging.getLogger(__name__)
@@ -83,12 +83,10 @@ class ESCController:
     def _initialize_hardware(self):
         """하드웨어 초기화"""
         try:
-            if PIGPIO_AVAILABLE:
-                # pigpio 사용 (더 정확한 PWM 제어)
-                self.pi = pigpio.pi()
-                if not self.pi.connected:
-                    raise RuntimeError("pigpio 연결 실패")
-                self.logger.info("pigpio를 사용하여 PWM 초기화 완료")
+            if RPI_GPIO_AVAILABLE:
+                # rpigpio 사용 (더 정확한 PWM 제어)
+                self.rpi_gpio = rpigpio.RPiGPIO()
+                self.logger.info("rpigpio를 사용하여 PWM 초기화 완료")
             elif GPIO_AVAILABLE:
                 # RPi.GPIO 사용
                 GPIO.setmode(GPIO.BCM)
@@ -133,9 +131,9 @@ class ESCController:
             pulse_width: 펄스 폭 (마이크로초)
         """
         try:
-            if self.pi:
-                # pigpio 사용
-                self.pi.set_servo_pulsewidth(self.config.channel, pulse_width)
+            if self.rpi_gpio:
+                # rpigpio 사용
+                self.rpi_gpio.set_servo_pulsewidth(self.config.channel, pulse_width)
             elif self.pwm:
                 # RPi.GPIO 사용
                 duty_cycle = (pulse_width / 20000) * 100  # 20ms = 20000us
@@ -311,9 +309,9 @@ class ESCController:
             self.emergency_stop()
             
             # PWM 정리
-            if self.pi:
-                self.pi.set_servo_pulsewidth(self.config.channel, 0)
-                self.pi.stop()
+            if self.rpi_gpio:
+                self.rpi_gpio.set_servo_pulsewidth(self.config.channel, 0)
+                self.rpi_gpio.stop()
             elif self.pwm:
                 self.pwm.stop()
                 GPIO.cleanup()

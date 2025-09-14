@@ -4,7 +4,7 @@
 RPi.GPIO>=0.7.1
 
 # 고성능 PWM 제어 (선택사항, RPi.GPIO보다 정확함)
-pigpio>=1.78
+rpigpio>=1.0.0
 
 # 추가 유틸리티 (선택사항)
 numpy>=1.21.0
