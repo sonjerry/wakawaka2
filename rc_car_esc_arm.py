@@ -21,24 +21,37 @@ try:
     print("중립 설정 (90°, 1500μs). 5초 대기.")
     time.sleep(5)
 
-    # 정방향: 90°에서 180°까지 천천히 상승
-    for angle in range(90, 181, 5):
-        set_throttle(angle)
-        time.sleep(0.5)
+    set_throttle(95)
+    time.sleep(1)
+    print("95")
+    set_throttle(100)
+    time.sleep(1)
+    print("100")
+    set_throttle(105)
+    time.sleep(1)
+    print("105")
+    set_throttle(110)
+    time.sleep(1)
+    print("110")
+    set_throttle(115)
+    time.sleep(1)
+    print("115")
 
-    # 90°로 짧게 유지
     set_throttle(90)
-    print("90° 유지. 2초 대기.")
-    time.sleep(2)
-
-    # 역방향: 90°에서 0°까지 천천히 하강
-    for angle in range(90, -1, -5):
-        set_throttle(angle)
-        time.sleep(1)
-
-    # 마무리: 중립 복귀
-    set_throttle(90)
-    print("중립으로 복귀 (90°, 1700μs).")
+    time.sleep(1)
+    print("90")
+    set_throttle(85)
+    time.sleep(1)
+    print("100")
+    set_throttle(80)
+    time.sleep(1)
+    print("105")
+    set_throttle(70)
+    time.sleep(1)
+    print("110")
+    set_throttle(50)
+    time.sleep(1)
+    print("115")
 
 except KeyboardInterrupt:
     set_throttle(90)  # 안전 중립
