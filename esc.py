@@ -5,7 +5,7 @@ from adafruit_servokit import ServoKit
 kit = ServoKit(channels=16)
 
 # ESC가 연결된 채널 번호 (예: 0번 채널)
-ESC_CHANNEL = 0
+ESC_CHANNEL = 1
 
 # 1. Arming: 중립 위치(90도)로 설정
 print("ESC Arming 시작: 중립 위치(90도)로 설정합니다.")
