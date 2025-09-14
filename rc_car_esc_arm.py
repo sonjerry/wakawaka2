@@ -13,7 +13,7 @@ try:
     # ✨ 추가된 부분: 0번 채널 서보모터 정렬 (90도)
     # =======================================================
     SERVO_CHANNEL = 0
-    kit.servo[SERVO_CHANNEL].angle = 90
+    kit.servo[SERVO_CHANNEL].angle = 80
     print(f"✅ {SERVO_CHANNEL}번 채널 서보를 90도(중립)로 정렬했습니다.")
     # =======================================================
 
@@ -33,9 +33,13 @@ def arm_esc():
     """ESC를 arming(활성화)합니다. 중립 신호를 보내 안전하게 시작할 수 있도록 준비시킵니다."""
     print("\nESC Arming을 시작합니다...")
     # 중립 위치(정지)로 설정합니다. 90도가 보통 중립입니다.
+    kit.servo[ESC_CHANNEL].angle = 0
+    time.sleep(0.5)
+    kit.servo[ESC_CHANNEL].angle = 180
+    time.sleep(0.5)
     kit.servo[ESC_CHANNEL].angle = 90
-    print("중립 신호(90도)를 보내는 중... ESC에서 신호음이 날 때까지 3초간 기다립니다.")
-    time.sleep(3)
+    time.sleep(0.5)
+   
     print("✅ ESC Arming이 완료되었습니다.")
 
 def run_motor():
