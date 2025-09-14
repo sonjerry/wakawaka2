@@ -19,7 +19,7 @@ THROTTLE_MIN = 3280  # 약 1ms 펄스 (최소 스로틀)
 THROTTLE_MAX = 6560  # 약 2ms 펄스 (최대 스로틀)
 
 # 사용할 PCA9685 채널 번호 (0번 ~ 15번)
-ESC_CHANNEL = 0
+ESC_CHANNEL = 1
 
 # --- 메인 코드 ---
 # 특정 채널을 변수로 지정하여 사용
