@@ -5,7 +5,7 @@ from adafruit_servokit import ServoKit
 kit = ServoKit(channels=16)
 
 # ESC 채널 번호 (예: 0번)
-esc_channel = 0
+esc_channel = 1
 
 # 펄스 폭 설정 함수 (μs 단위, ESC에 맞춤)
 def set_throttle(pulse_width):
