@@ -131,16 +131,22 @@ class ESCController:
             pulse_width: 펄스 폭 (마이크로초)
         """
         try:
+            # 펄스 폭 범위 검증
+            if pulse_width < 500 or pulse_width > 2500:
+                self.logger.warning(f"펄스 폭이 범위를 벗어남: {pulse_width}us (500-2500us 권장)")
+            
             if self.rpi_gpio:
                 # rpigpio 사용
                 self.rpi_gpio.set_servo_pulsewidth(self.config.channel, pulse_width)
+                self.logger.info(f"rpigpio: 채널 {self.config.channel}에 {pulse_width}us 펄스 전송")
             elif self.pwm:
                 # RPi.GPIO 사용
                 duty_cycle = (pulse_width / 20000) * 100  # 20ms = 20000us
                 self.pwm.ChangeDutyCycle(duty_cycle)
+                self.logger.info(f"RPi.GPIO: 채널 {self.config.channel}에 {duty_cycle:.2f}% 듀티 사이클 전송")
             else:
                 # 시뮬레이션 모드
-                self.logger.debug(f"시뮬레이션: PWM 펄스 폭 {pulse_width}us 설정")
+                self.logger.info(f"시뮬레이션: PWM 펄스 폭 {pulse_width}us 설정")
                 
         except Exception as e:
             self.logger.error(f"PWM 설정 실패: {e}")
@@ -161,16 +167,28 @@ class ESCController:
                 return False
             
             self.logger.info("ESC ARM 시작...")
+            self.logger.info(f"사용 중인 하드웨어: {'rpigpio' if self.rpi_gpio else 'RPi.GPIO' if self.pwm else '시뮬레이션'}")
+            
+            # PWM 시작 (RPi.GPIO의 경우)
+            if self.pwm and not self.pwm._running:
+                self.pwm.start(0)  # 0% 듀티 사이클로 시작
+                self.logger.info("PWM 시작됨")
             
             # ARM 시퀀스 실행
+            self.logger.info(f"ARM 펄스 폭 {self.config.arm_pulse_width}us 전송...")
             self._set_pwm_pulse_width(self.config.arm_pulse_width)
-            time.sleep(2.0)  # 2초 대기
+            time.sleep(3.0)  # 3초 대기 (ESC가 신호를 인식할 시간)
+            
+            # 중립 신호로 전환
+            self.logger.info(f"중립 펄스 폭 {self.config.neutral_pulse_width}us로 전환...")
+            self._set_pwm_pulse_width(self.config.neutral_pulse_width)
+            time.sleep(1.0)  # 1초 대기
             
             self.is_armed = True
             self.state = MotorState.STOPPED
             self.last_command_time = time.time()
             
-            self.logger.info("ESC ARM 완료")
+            self.logger.info("ESC ARM 완료 - 모터가 중립 상태입니다")
             if self.on_state_change:
                 self.on_state_change(self.state)
             
@@ -274,6 +292,76 @@ class ESCController:
                 self.on_error(f"비상 정지 실패: {e}")
             return False
     
+    def test_esc_signals(self) -> bool:
+        """
+        ESC 신호 테스트 (다양한 펄스 폭으로 테스트)
+        
+        Returns:
+            bool: 테스트 성공 여부
+        """
+        try:
+            self.logger.info("ESC 신호 테스트 시작...")
+            
+            test_sequences = [
+                (1000, "최소 펄스 (1000us)"),
+                (1500, "중립 펄스 (1500us)"),
+                (2000, "최대 펄스 (2000us)"),
+                (1500, "중립 펄스 (1500us)"),
+            ]
+            
+            for pulse_width, description in test_sequences:
+                self.logger.info(f"테스트: {description}")
+                self._set_pwm_pulse_width(pulse_width)
+                time.sleep(2.0)  # 각 신호를 2초간 유지
+            
+            self.logger.info("ESC 신호 테스트 완료")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"ESC 신호 테스트 실패: {e}")
+            return False
+    
+    def diagnose_connection(self) -> dict:
+        """
+        연결 상태 진단
+        
+        Returns:
+            dict: 진단 결과
+        """
+        diagnosis = {
+            "hardware_available": {
+                "rpigpio": RPI_GPIO_AVAILABLE,
+                "RPi.GPIO": GPIO_AVAILABLE,
+            },
+            "current_hardware": None,
+            "pwm_status": None,
+            "channel_status": None,
+            "recommendations": []
+        }
+        
+        # 현재 사용 중인 하드웨어 확인
+        if self.rpi_gpio:
+            diagnosis["current_hardware"] = "rpigpio"
+            diagnosis["pwm_status"] = "활성화됨"
+        elif self.pwm:
+            diagnosis["current_hardware"] = "RPi.GPIO"
+            diagnosis["pwm_status"] = "활성화됨" if self.pwm._running else "비활성화됨"
+        else:
+            diagnosis["current_hardware"] = "시뮬레이션"
+            diagnosis["pwm_status"] = "시뮬레이션 모드"
+        
+        # 권장사항 추가
+        if not RPI_GPIO_AVAILABLE and not GPIO_AVAILABLE:
+            diagnosis["recommendations"].append("하드웨어 GPIO 라이브러리를 설치하세요")
+        
+        if self.state == MotorState.ERROR:
+            diagnosis["recommendations"].append("오류 상태를 해결하세요")
+        
+        if not self.is_armed:
+            diagnosis["recommendations"].append("ESC를 ARM하세요")
+        
+        return diagnosis
+
     def get_status(self) -> dict:
         """
         현재 상태 정보 반환
@@ -292,7 +380,8 @@ class ESCController:
                 "min_pulse_width": self.config.min_pulse_width,
                 "max_pulse_width": self.config.max_pulse_width,
                 "neutral_pulse_width": self.config.neutral_pulse_width,
-            }
+            },
+            "diagnosis": self.diagnose_connection()
         }
     
     def cleanup(self):
@@ -358,13 +447,33 @@ if __name__ == "__main__":
         esc.on_state_change = on_state_change
         esc.on_error = on_error
         
-        # ESC ARM
+        # 연결 상태 진단
+        print("=== ESC 연결 상태 진단 ===")
+        status = esc.get_status()
+        diagnosis = status["diagnosis"]
+        
+        print(f"사용 가능한 하드웨어: {diagnosis['hardware_available']}")
+        print(f"현재 하드웨어: {diagnosis['current_hardware']}")
+        print(f"PWM 상태: {diagnosis['pwm_status']}")
+        
+        if diagnosis["recommendations"]:
+            print("권장사항:")
+            for rec in diagnosis["recommendations"]:
+                print(f"  - {rec}")
+        
+        print("\n=== ESC 신호 테스트 ===")
+        if esc.test_esc_signals():
+            print("ESC 신호 테스트 완료")
+        else:
+            print("ESC 신호 테스트 실패")
+        
+        print("\n=== ESC ARM 시도 ===")
         if esc.arm():
             print("ESC ARM 성공")
             
             try:
                 # 모터 제어 테스트
-                print("모터 정방향 50% 속도로 3초간 실행...")
+                print("\n모터 정방향 50% 속도로 3초간 실행...")
                 esc.set_speed(0.5)
                 time.sleep(3)
                 
@@ -385,3 +494,8 @@ if __name__ == "__main__":
                 esc.emergency_stop()
         else:
             print("ESC ARM 실패")
+            print("\n문제 해결 방법:")
+            print("1. ESC가 전원에 연결되어 있는지 확인")
+            print("2. ESC 신호선이 GPIO 1번 핀에 연결되어 있는지 확인")
+            print("3. ESC가 올바른 PWM 신호를 받고 있는지 확인")
+            print("4. ESC가 ARM 모드인지 확인 (일부 ESC는 특별한 ARM 시퀀스가 필요)")
