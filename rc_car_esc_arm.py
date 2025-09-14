@@ -1,112 +1,48 @@
 import time
-from board import SCL, SDA
-import busio
 from adafruit_servokit import ServoKit
 
-# Initialize I2C bus and ServoKit
+# ServoKit 초기화 (PCA9685, 16채널)
+kit = ServoKit(channels=16)
+
+# ESC 채널 번호 (예: 0번)
+esc_channel = 0
+
+# 펄스 폭 설정 함수 (μs 단위, ESC에 맞춤)
+def set_throttle(pulse_width):
+    # ServoKit에서 pulse width 직접 설정 (angle 대신 사용)
+    kit.servo[esc_channel].set_pulse_width(pulse_width)  # 1000-2000μs 범위
+    print(f"Throttle set to {pulse_width}μs")
+
+# 캘리브레이션 시퀀스
 try:
-    i2c = busio.I2C(SCL, SDA)
-    kit = ServoKit(channels=16, i2c=i2c)
-    print("PCA9685 initialized successfully.")
-except Exception as e:
-    print(f"❌ Error: PCA9685 not found or initialization failed. Check I2C connection.")
-    print(e)
-    exit()
+    # 1. 전원 OFF 상태에서 중립 신호 미리 설정 (배터리 연결 전)
+    set_throttle(1500)  # 중립
+    print("중립 신호 설정. 이제 배터리 연결하세요 (전원 ON).")
+    input("Enter 누르면 계속...")  # 배터리 연결 대기
 
-# --- Channel Configuration ---
-SERVO_CHANNEL = 0
-ESC_CHANNEL = 1
+    # 2. 배터리 연결 후 (ESC 비프음 1-2회 나야 함, LiPo면 셀 수만큼 + 긴 비프)
+    time.sleep(2)  # ESC가 부팅할 시간
 
-# --- ESC Pulse Width Configuration ---
-# This range (1000µs to 2000µs) is standard for most hobbyist ESCs.
-kit.servo[ESC_CHANNEL].set_pulse_width_range(1800, 2200)
-print(f"ESC pulse width range set for channel {ESC_CHANNEL}.")
-
-def arm_esc():
-    """
-    Arms the ESC. This is a safety feature to prevent the motor
-    from starting unexpectedly. It typically involves sending the
-    neutral signal (90 degrees).
-    """
-    print("\nArming ESC...")
-    # Most ESCs arm by receiving a neutral signal (stop).
-    # Sending a 90-degree angle corresponds to a 1500µs pulse, the standard neutral position.
-    kit.servo[ESC_CHANNEL].angle = 180
+    # 3. 최대 신호 보내기 (ESC가 2회 비프음 내며 학습)
+    set_throttle(2000)
+    print("최대 신호 보냄. 2회 비프 확인.")
     time.sleep(2)
-    kit.servo[ESC_CHANNEL].angle = 0
+
+    # 4. 최소 신호 보내기 (ESC가 1회 비프음 내며 학습, 브레이크)
+    set_throttle(1000)
+    print("최소 신호 보냄. 1회 비프 확인.")
     time.sleep(2)
-    kit.servo[ESC_CHANNEL].angle = 90
-    print("✅ ESC Arming complete. Motor is ready.")
-    time.sleep(1) # Wait a moment for the ESC to process the signal
 
-def main():
-    """Main execution function"""
-    try:
-        # 1. Arm the ESC on startup
-        arm_esc()
+    # 5. 다시 중립으로 (ESC가 준비 비프 후 LED 켜짐)
+    set_throttle(1500)
+    print("중립으로 복귀. 캘리브레이션 완료! 이제 throttle 조절 테스트.")
 
-        while True:
-            # 2. Get user input
-            try:
-                choice = int(input(
-                    "\nEnter a channel to control:\n"
-                    "  '0' for Servo Motor\n"
-                    "  '1' for ESC (Motor)\n"
-                    " '-1' to exit\n"
-                    "Choice: "
-                ))
-            except ValueError:
-                print("Invalid input. Please enter a number.")
-                continue
+    # 테스트: 서서히 앞으로 (비프 없고 모터 돌기 시작)
+    for pw in range(1500, 2000, 50):
+        set_throttle(pw)
+        time.sleep(0.5)
+    set_throttle(1500)  # 중립 복귀
 
-            # --- Servo Motor Control ---
-            if choice == SERVO_CHANNEL:
-                try:
-                    angle_input = input(f"Enter angle for Servo on channel {SERVO_CHANNEL} (0-180): ")
-                    angle = int(angle_input)
-                    if 0 <= angle <= 180:
-                        kit.servo[SERVO_CHANNEL].angle = angle
-                        print(f"✅ Servo on channel {SERVO_CHANNEL} set to {angle} degrees.")
-                    else:
-                        print("❌ Error: Angle must be between 0 and 180.")
-                except ValueError:
-                    print("❌ Invalid input. Please enter a number for the angle.")
-
-            # --- ESC Control ---
-            elif choice == ESC_CHANNEL:
-                try:
-                    angle_input = input(f"Enter speed/direction for ESC on channel {ESC_CHANNEL} (0-180, 90=stop): ")
-                    angle = int(angle_input)
-                    if 0 <= angle <= 180:
-                        print(f"Running motor at {angle} degrees for 2 seconds...")
-                        kit.servo[ESC_CHANNEL].angle = angle
-                        time.sleep(2)
-                        # Optionally, you can stop the motor automatically after the duration
-                        # kit.servo[ESC_CHANNEL].angle = 90
-                        print(f"✅ Motor control complete. Ready for next command.")
-                    else:
-                        print("❌ Error: Angle must be between 0 and 180.")
-                except ValueError:
-                    print("❌ Invalid input. Please enter a number for the angle.")
-
-            # --- Exit Program ---
-            elif choice == -1:
-                print("Exiting program.")
-                break
-
-            else:
-                print("Invalid channel selected. Please try again.")
-
-    except KeyboardInterrupt:
-        print("\nProgram interrupted by user.")
-    except Exception as e:
-        print(f"\n❌ An unexpected error occurred: {e}")
-    finally:
-        # Safety measure: ensure the motor is stopped on exit.
-        print("🛑 Stopping motor for safety.")
-        kit.servo[ESC_CHANNEL].angle = 90
-        print("🎉 Program finished.")
-
-
-if __name__ == '__main__':
-    main()
+except KeyboardInterrupt:
+    set_throttle(1500)  # 안전 중립
+    print("중단됨. 중립으로 설정.")
