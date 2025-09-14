@@ -25,11 +25,11 @@ def set_throttle(angle):
 # 동작 시퀀스 (이전처럼 입력받아 5초 유지)
 try:
     # 시작: 중립 (90°, 1599μs)
-    set_throttle(0)
+    set_throttle(90)
     print("중립 설정 ")
     time.sleep(1)
-    set_throttle(180)
-    time.sleep(1)
+    set_throttle(120)
+    time.sleep(1)1
 
     # 사용자로부터 각도 입력 받기
     angle_input = int(input("유지할 각도를 입력하세요 (0-180): "))
