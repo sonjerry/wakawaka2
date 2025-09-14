@@ -1,65 +1,93 @@
 import time
-import board
+from board import SCL, SDA
 import busio
-from adafruit_pca9685 import PCA9685
+from adafruit_servokit import ServoKit
 
-# --- I2C 및 PCA9685 초기화 ---
-i2c = busio.I2C(board.SCL, board.SDA)
-pca = PCA9685(i2c)
-pca.frequency = 50
-
-# --- RC카 ESC용 PWM 값 정의 ---
-# 이 값들은 ESC 제조사에 따라 미세 조정이 필요할 수 있습니다.
-THROTTLE_REVERSE_MAX = 3280  # 약 1.0ms 펄스 (최대 후진)
-THROTTLE_NEUTRAL = 4912      # 약 1.5ms 펄스 (중립/정지)
-THROTTLE_FORWARD_MAX = 6560  # 약 2.0ms 펄스 (최대 전진)
-
-# 사용할 PCA9685 채널 번호 (0 ~ 15)
-ESC_CHANNEL = 1
-esc = pca.channels[ESC_CHANNEL]
-
-def arm_car_esc():
-    """RC카 ESC를 중립 신호로 아밍하는 함수"""
-    print("RC카 ESC 아밍을 시작합니다.")
-    print(f"채널 {ESC_CHANNEL}에 중립(Neutral) 신호({THROTTLE_NEUTRAL})를 보냅니다.")
-    
-    # 아밍을 위해 반드시 중립 신호를 먼저 보내야 합니다.
-    esc.duty_cycle = THROTTLE_NEUTRAL
-    time.sleep(2) # ESC가 신호를 인식할 시간을 줍니다.
-    
-    print("아밍 완료! 이제 주행이 가능합니다.")
-
+# I2C 버스 및 ServoKit 초기화
+# PCA9685의 기본 주소는 0x40 입니다. 주소가 다를 경우 address=0x?? 로 수정하세요.
+# channels=16은 PCA9685가 16개의 채널을 가지고 있음을 의미합니다.
 try:
-    # 1. ESC 아밍 실행
-    arm_car_esc()
+    i2c = busio.I2C(SCL, SDA)
+    kit = ServoKit(channels=16, i2c=i2c)
+    print("PCA9685가 성공적으로 초기화되었습니다.")
+except Exception as e:
+    print(f"오류: PCA9685를 찾을 수 없거나 초기화에 실패했습니다. I2C 연결을 확인하세요.")
+    print(e)
+    exit()
 
-    # 2. 주행 테스트
-    print("\n--- 주행 테스트 시작 ---")
-    
-    # 약한 전진 (3초)
-    print("약하게 전진합니다...")
-    esc.duty_cycle = int(THROTTLE_NEUTRAL * 1.1) # 중립보다 10% 높은 값
+# ESC가 연결된 채널 설정
+ESC_CHANNEL = 1  # 1번 채널에 연결됨
+
+# ESC 펄스 폭 범위 설정 (대부분의 ESC는 1000-2000µs 범위에서 작동)
+# 필요에 따라 이 값을 미세 조정할 수 있습니다.
+# set_pulse_width_range(min_pulse, max_pulse)
+kit.servo[ESC_CHANNEL].set_pulse_width_range(1000, 2000)
+print("ESC 펄스 폭 범위를 1000µs에서 2000µs로 설정했습니다.")
+
+def arm_esc():
+    """ESC를 arming(활성화)합니다. 중립 신호를 보내 안전하게 시작할 수 있도록 준비시킵니다."""
+    print("\nESC Arming을 시작합니다...")
+    # 중립 위치(정지)로 설정합니다. 90도가 보통 중립입니다.
+    kit.servo[ESC_CHANNEL].angle = 90
+    print("중립 신호(90도)를 보내는 중... ESC에서 신호음이 날 때까지 3초간 기다립니다.")
     time.sleep(3)
+    print("ESC Arming이 완료되었습니다.")
+
+def run_motor():
+    """모터를 정방향과 역방향으로 최고속, 최저속으로 구동합니다."""
+    # --- 정방향 테스트 ---
+    print("\n--- 정방향 테스트 ---")
     
-    # 정지 (2초)
-    print("정지합니다...")
-    esc.duty_cycle = THROTTLE_NEUTRAL
+    # 정방향 최저속 (중립에서 약간 벗어난 값)
+    print("정방향 최저속으로 2초간 구동합니다.")
+    kit.servo[ESC_CHANNEL].angle = 100
     time.sleep(2)
+
+    # 정방향 최고속
+    print("정방향 최고속으로 3초간 구동합니다.")
+    kit.servo[ESC_CHANNEL].angle = 180
+    time.sleep(3)
     
-    # 약한 후진 (3초)
-    # 참고: 일부 ESC는 후진을 위해 중립->브레이크->중립->후진 같은 복잡한 과정을 거칩니다.
-    #      여기서는 단순 후진 신호를 보냅니다.
-    print("약하게 후진합니다...")
-    esc.duty_cycle = int(THROTTLE_NEUTRAL * 0.9) # 중립보다 10% 낮은 값
+    # 정지
+    print("모터를 정지합니다.")
+    kit.servo[ESC_CHANNEL].angle = 90
+    time.sleep(2) # 방향 전환 전 잠시 대기
+
+    # --- 역방향 테스트 ---
+    print("\n--- 역방향 테스트 ---")
+    
+    # 역방향 최저속 (중립에서 약간 벗어난 값)
+    print("역방향 최저속으로 2초간 구동합니다.")
+    kit.servo[ESC_CHANNEL].angle = 80
+    time.sleep(2)
+
+    # 역방향 최고속
+    print("역방향 최고속으로 3초간 구동합니다.")
+    kit.servo[ESC_CHANNEL].angle = 0
     time.sleep(3)
 
-except KeyboardInterrupt:
-    print("\n프로그램을 중지합니다.")
-
-finally:
-    # 안전하게 중립 상태로 모터 정지
-    print("안전을 위해 모터를 정지(중립) 상태로 되돌립니다.")
-    esc.duty_cycle = THROTTLE_NEUTRAL
+    # 정지
+    print("모터를 정지합니다.")
+    kit.servo[ESC_CHANNEL].angle = 90
     time.sleep(1)
-    pca.deinit()
-    print("리소스가 정리되었습니다.")
+
+def main():
+    """메인 실행 함수"""
+    try:
+        # 1. ESC Arming
+        arm_esc()
+
+        # 2. 모터 구동 테스트
+        run_motor()
+
+        print("\n테스트가 완료되었습니다.")
+
+    except KeyboardInterrupt:
+        print("\n사용자에 의해 프로그램이 중단되었습니다. 모터를 정지합니다.")
+        kit.servo[ESC_CHANNEL].angle = 90 # 안전을 위해 모터 정지
+    except Exception as e:
+        print(f"\n오류가 발생했습니다: {e}")
+        kit.servo[ESC_CHANNEL].angle = 90 # 안전을 위해 모터 정지
+
+if __name__ == '__main__':
+    main()
