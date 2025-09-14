@@ -29,7 +29,7 @@ try:
     print("중립 설정 ")
     time.sleep(1)
     set_throttle(120)
-    time.sleep(1)1
+    time.sleep(1)
 
     # 사용자로부터 각도 입력 받기
     angle_input = int(input("유지할 각도를 입력하세요 (0-180): "))
