@@ -45,8 +45,8 @@ try:
     print("중립으로 복귀 (90°, 1599μs).")
 
 except KeyboardInterrupt:
-    set_throttle(90)  # 안전 중립
+    set_throttle(100)  # 안전 중립
     print("중단됨. 중립으로 설정.")
 except ValueError:
-    set_throttle(90)  # 잘못된 입력 시 중립
+    set_throttle(100)  # 잘못된 입력 시 중립
     print("숫자를 입력하세요. 중립으로 설정.")
