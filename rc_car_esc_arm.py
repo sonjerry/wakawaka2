@@ -19,7 +19,7 @@ ESC_CHANNEL = 1
 
 # --- ESC Pulse Width Configuration ---
 # This range (1000µs to 2000µs) is standard for most hobbyist ESCs.
-kit.servo[ESC_CHANNEL].set_pulse_width_range(1000, 2000)
+kit.servo[ESC_CHANNEL].set_pulse_width_range(1800, 2200)
 print(f"ESC pulse width range set for channel {ESC_CHANNEL}.")
 
 def arm_esc():
