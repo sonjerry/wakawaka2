@@ -11,7 +11,7 @@ esc_channel = 1
 # 펄스 폭을 angle로 매핑 (90° = 1700μs, 180° = 2000μs, 0° = 1000μs)
 def set_throttle(angle):
     kit.servo[esc_channel].angle = angle  # 0-180도 범위
-    pulse_width = int(1700 + (angle - 90) * 3.333)  # 90°=1700μs, 180°=2000μs, 0°=1000μs
+    pulse_width = int(1800 + (angle - 90) * 3.333)  # 90°=1700μs, 180°=2000μs, 0°=1000μs
     print(f"Throttle set to {angle}° (approx. {pulse_width}μs)")
 
 # 동작 시퀀스
