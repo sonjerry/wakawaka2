@@ -1,0 +1,10 @@
+# ESC DC모터 제어를 위한 Python 의존성 패키지
+
+# GPIO 제어 (Raspberry Pi)
+RPi.GPIO>=0.7.1
+
+# 고성능 PWM 제어 (선택사항, RPi.GPIO보다 정확함)
+pigpio>=1.78
+
+# 추가 유틸리티 (선택사항)
+numpy>=1.21.0

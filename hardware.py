@@ -1,209 +1,389 @@
-# hardware.py — PCA9685 external PWM driver (drop-in for main.py)
-# Channels: 0=Steer Servo, 1=ESC, 2=Headlight, 3=Taillight
-from __future__ import annotations
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+ESC DC모터 제어 하드웨어 모듈
+PWM 신호를 사용하여 1번 채널에 연결된 ESC로 DC모터를 제어합니다.
+"""
+
 import time
+import threading
 import logging
+from typing import Optional, Callable
+from dataclasses import dataclass
+from enum import Enum
 
-logger = logging.getLogger(__name__)
-
-# ---- Try PCA9685 first (no pigpio / no pigpiod needed) ----
-_HAS_PCA9685 = False
 try:
-    import board
-    import busio
-    from adafruit_pca9685 import PCA9685
-    _HAS_PCA9685 = True
-except Exception as e:
-    logger.warning(f"PCA9685 import failed: {e}")
+    import RPi.GPIO as GPIO
+    GPIO_AVAILABLE = True
+except ImportError:
+    GPIO_AVAILABLE = False
+    print("경고: RPi.GPIO 모듈을 찾을 수 없습니다. 시뮬레이션 모드로 실행됩니다.")
 
-# (optional) last-resort dummy fallback
-class _DummyPCA:
-    def __init__(self): pass
-    def deinit(self): pass
-    @property
-    def channels(self):
-        class _C:
-            duty_cycle = 0
-        return [ _C() for _ in range(16) ]
-    @property
-    def frequency(self): return 50
-    @frequency.setter
-    def frequency(self, v): pass
+try:
+    import pigpio
+    PIGPIO_AVAILABLE = True
+except ImportError:
+    PIGPIO_AVAILABLE = False
+    print("경고: pigpio 모듈을 찾을 수 없습니다. RPi.GPIO를 사용합니다.")
 
-class PWMController:
-    """
-    Public API expected by main.py:
-      - arm_esc()
-      - set_servo_angle(angle_deg: float)     # -90..+90 (A/D)
-      - set_esc_speed(speed_pct: float)       # -100..+100 (W/S -> axis)
-      - set_headlight(on: bool)
-      - emergency_stop()
-      - cleanup()
-      - set_gear(gear: str)  # 'P','R','N','D' (optional but used)
-      - set_taillight(on: bool)
-    """
 
-    # ===== PCA9685 channel mapping =====
-    CH_STEER = 0
-    CH_ESC = 1
-    CH_HEAD = 2
-    CH_TAIL = 3
+class MotorState(Enum):
+    """모터 상태 열거형"""
+    STOPPED = "stopped"
+    RUNNING = "running"
+    BRAKING = "braking"
+    ERROR = "error"
 
-    # ===== pulse settings =====
-    PULSE_MIN = 1000  # us
-    PULSE_MAX = 2000  # us
-    PULSE_NEU = 1500  # us
-    SERVO_MIN = 1000  # us at -90°
-    SERVO_MAX = 2000  # us at +90°
 
-    # LEDs: ON/OFF 기본. (PCA9685는 채널 전체 주파수 공유 → 중간 밝기는 50Hz에서 깜빡임 생길 수 있음)
-    LED_USE_PWM = False
+@dataclass
+class MotorConfig:
+    """모터 설정 클래스"""
+    channel: int = 1  # PWM 채널 (1번)
+    frequency: int = 50  # PWM 주파수 (Hz) - ESC 표준
+    min_pulse_width: int = 1000  # 최소 펄스 폭 (마이크로초)
+    max_pulse_width: int = 2000  # 최대 펄스 폭 (마이크로초)
+    neutral_pulse_width: int = 1500  # 중립 펄스 폭 (마이크로초)
+    arm_pulse_width: int = 1000  # ARM 펄스 폭 (마이크로초)
+    safety_timeout: float = 5.0  # 안전 타임아웃 (초)
 
-    # I2C addr (보통 0x40). 필요하면 환경변수/설정으로 바꾸세요.
-    PCA9685_ADDR = 0x40
-    PCA9685_FREQ = 50  # 50Hz (서보/ESC)
 
-    def __init__(self) -> None:
-        self._gear = 'P'
-        self._armed = False
-        self._pca = None
-
-        if _HAS_PCA9685:
-            try:
-                i2c = busio.I2C(board.SCL, board.SDA)
-                self._pca = PCA9685(i2c, address=self.PCA9685_ADDR)
-                self._pca.frequency = self.PCA9685_FREQ
-                logger.info(f"PCA9685 connected at 0x{self.PCA9685_ADDR:02X}, {self.PCA9685_FREQ}Hz")
-
-                # safe init
-                self._apply_servo_pulse(self.PULSE_NEU)
-                self._apply_esc_pulse(self.PULSE_NEU)
-                self._set_led(self.CH_HEAD, False)  # head off
-                self._set_led(self.CH_TAIL, True)   # tail parking on
-            except Exception as e:
-                logger.error(f"PCA9685 init failed: {e}. Using dummy fallback.")
-                self._pca = _DummyPCA()
-        else:
-            logger.warning("PCA9685 library unavailable; using dummy (no hardware driven).")
-            self._pca = _DummyPCA()
-
-    # ========= public API =========
-    def arm_esc(self) -> None:
-        logger.info("Arming ESC (neutral hold)...")
-        self._apply_esc_pulse(self.PULSE_NEU)
-        time.sleep(1.0)
-        self._armed = True
-        logger.info("ESC armed.")
-
-    def set_servo_angle(self, angle_deg: float) -> None:
-        angle = max(-90.0, min(90.0, float(angle_deg)))
-        span = self.SERVO_MAX - self.SERVO_MIN
-        pulse = int(self.SERVO_MIN + (angle + 90.0) / 180.0 * span)
-        self._apply_servo_pulse(pulse)
-
-    def set_esc_speed(self, speed_pct: float) -> None:
+class ESCController:
+    """ESC DC모터 제어기 클래스"""
+    
+    def __init__(self, config: MotorConfig = None):
         """
-        speed_pct: -100..+100, but gear rules restrict direction:
-          - P/N : always neutral
-          - D   : v>0 → 1500..2000us, v<=0 → 1500us (no reverse)
-          - R   : v>0 → 1500..1000us, v<=0 → 1500us (no forward)
+        ESC 제어기 초기화
+        
+        Args:
+            config: 모터 설정 (기본값 사용 가능)
         """
-        v = float(speed_pct)
-        g = self._gear
-
-        if not self._armed or g in ('P', 'N'):
-            pulse = self.PULSE_NEU
-        elif g == 'D':
-            pulse = self._map_forward(v) if v > 0 else self.PULSE_NEU
-        elif g == 'R':
-            pulse = self._map_reverse(v) if v > 0 else self.PULSE_NEU
-        else:
-            pulse = self.PULSE_NEU
-
-        self._apply_esc_pulse(pulse)
-
-        # brake/neutral hint on tail
+        self.config = config or MotorConfig()
+        self.state = MotorState.STOPPED
+        self.current_speed = 0.0  # -1.0 ~ 1.0 (음수는 역방향)
+        self.is_armed = False
+        self.last_command_time = 0.0
+        self.safety_thread = None
+        self.safety_running = False
+        
+        # PWM 객체
+        self.pwm = None
+        self.pi = None
+        
+        # 로깅 설정
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
+        
+        # 콜백 함수들
+        self.on_state_change: Optional[Callable] = None
+        self.on_error: Optional[Callable] = None
+        
+        self._initialize_hardware()
+        self._start_safety_monitor()
+    
+    def _initialize_hardware(self):
+        """하드웨어 초기화"""
         try:
-            braking = (g == 'D' and v <= 0) or (g == 'R' and v <= 0)
-            self._set_taillight_brightness(100 if braking else 40)
-        except Exception:
-            pass
-
-    def set_headlight(self, on: bool) -> None:
-        self._set_led(self.CH_HEAD, bool(on))
-
-    def set_taillight(self, on: bool) -> None:
-        self._set_led(self.CH_TAIL, bool(on))
-
-    def emergency_stop(self) -> None:
-        logger.warning("EMERGENCY STOP!")
-        self._apply_esc_pulse(self.PULSE_NEU)
-        self._apply_servo_pulse(self.PULSE_NEU)
-        self._set_led(self.CH_HEAD, False)
-        self._set_led(self.CH_TAIL, True)
-        self._armed = False
-
-    def cleanup(self) -> None:
-        logger.info("PWMController cleanup.")
+            if PIGPIO_AVAILABLE:
+                # pigpio 사용 (더 정확한 PWM 제어)
+                self.pi = pigpio.pi()
+                if not self.pi.connected:
+                    raise RuntimeError("pigpio 연결 실패")
+                self.logger.info("pigpio를 사용하여 PWM 초기화 완료")
+            elif GPIO_AVAILABLE:
+                # RPi.GPIO 사용
+                GPIO.setmode(GPIO.BCM)
+                GPIO.setup(self.config.channel, GPIO.OUT)
+                self.pwm = GPIO.PWM(self.config.channel, self.config.frequency)
+                self.logger.info("RPi.GPIO를 사용하여 PWM 초기화 완료")
+            else:
+                # 시뮬레이션 모드
+                self.logger.warning("하드웨어 모듈을 찾을 수 없습니다. 시뮬레이션 모드로 실행됩니다.")
+                
+        except Exception as e:
+            self.logger.error(f"하드웨어 초기화 실패: {e}")
+            self.state = MotorState.ERROR
+            if self.on_error:
+                self.on_error(f"하드웨어 초기화 실패: {e}")
+    
+    def _start_safety_monitor(self):
+        """안전 모니터링 스레드 시작"""
+        self.safety_running = True
+        self.safety_thread = threading.Thread(target=self._safety_monitor, daemon=True)
+        self.safety_thread.start()
+        self.logger.info("안전 모니터링 스레드 시작")
+    
+    def _safety_monitor(self):
+        """안전 모니터링 루프"""
+        while self.safety_running:
+            current_time = time.time()
+            
+            # 안전 타임아웃 체크
+            if (current_time - self.last_command_time > self.config.safety_timeout and 
+                self.state == MotorState.RUNNING):
+                self.logger.warning("안전 타임아웃 발생 - 모터 정지")
+                self.emergency_stop()
+            
+            time.sleep(0.1)  # 100ms 간격으로 체크
+    
+    def _set_pwm_pulse_width(self, pulse_width: int):
+        """
+        PWM 펄스 폭 설정
+        
+        Args:
+            pulse_width: 펄스 폭 (마이크로초)
+        """
         try:
-            self._apply_esc_pulse(self.PULSE_NEU)
-            self._apply_servo_pulse(self.PULSE_NEU)
-            self._set_led(self.CH_HEAD, False)
-            self._set_led(self.CH_TAIL, False)
-        finally:
+            if self.pi:
+                # pigpio 사용
+                self.pi.set_servo_pulsewidth(self.config.channel, pulse_width)
+            elif self.pwm:
+                # RPi.GPIO 사용
+                duty_cycle = (pulse_width / 20000) * 100  # 20ms = 20000us
+                self.pwm.ChangeDutyCycle(duty_cycle)
+            else:
+                # 시뮬레이션 모드
+                self.logger.debug(f"시뮬레이션: PWM 펄스 폭 {pulse_width}us 설정")
+                
+        except Exception as e:
+            self.logger.error(f"PWM 설정 실패: {e}")
+            self.state = MotorState.ERROR
+            if self.on_error:
+                self.on_error(f"PWM 설정 실패: {e}")
+    
+    def arm(self) -> bool:
+        """
+        ESC ARM (모터 활성화)
+        
+        Returns:
+            bool: ARM 성공 여부
+        """
+        try:
+            if self.state == MotorState.ERROR:
+                self.logger.error("오류 상태에서 ARM 시도")
+                return False
+            
+            self.logger.info("ESC ARM 시작...")
+            
+            # ARM 시퀀스 실행
+            self._set_pwm_pulse_width(self.config.arm_pulse_width)
+            time.sleep(2.0)  # 2초 대기
+            
+            self.is_armed = True
+            self.state = MotorState.STOPPED
+            self.last_command_time = time.time()
+            
+            self.logger.info("ESC ARM 완료")
+            if self.on_state_change:
+                self.on_state_change(self.state)
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"ESC ARM 실패: {e}")
+            self.state = MotorState.ERROR
+            if self.on_error:
+                self.on_error(f"ESC ARM 실패: {e}")
+            return False
+    
+    def set_speed(self, speed: float) -> bool:
+        """
+        모터 속도 설정
+        
+        Args:
+            speed: 속도 (-1.0 ~ 1.0, 음수는 역방향)
+            
+        Returns:
+            bool: 설정 성공 여부
+        """
+        try:
+            if not self.is_armed:
+                self.logger.warning("ESC가 ARM되지 않음")
+                return False
+            
+            if self.state == MotorState.ERROR:
+                self.logger.error("오류 상태에서 속도 설정 시도")
+                return False
+            
+            # 속도 범위 제한
+            speed = max(-1.0, min(1.0, speed))
+            
+            # 펄스 폭 계산
+            if speed == 0:
+                pulse_width = self.config.neutral_pulse_width
+                self.state = MotorState.STOPPED
+            else:
+                # 선형 변환: -1.0~1.0 -> min_pulse_width~max_pulse_width
+                range_width = self.config.max_pulse_width - self.config.min_pulse_width
+                pulse_width = self.config.neutral_pulse_width + (speed * range_width / 2)
+                pulse_width = int(pulse_width)
+                self.state = MotorState.RUNNING
+            
+            # PWM 설정
+            self._set_pwm_pulse_width(pulse_width)
+            
+            self.current_speed = speed
+            self.last_command_time = time.time()
+            
+            self.logger.debug(f"모터 속도 설정: {speed:.2f} (펄스 폭: {pulse_width}us)")
+            
+            if self.on_state_change:
+                self.on_state_change(self.state)
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"속도 설정 실패: {e}")
+            self.state = MotorState.ERROR
+            if self.on_error:
+                self.on_error(f"속도 설정 실패: {e}")
+            return False
+    
+    def stop(self) -> bool:
+        """
+        모터 정지
+        
+        Returns:
+            bool: 정지 성공 여부
+        """
+        return self.set_speed(0.0)
+    
+    def emergency_stop(self) -> bool:
+        """
+        비상 정지
+        
+        Returns:
+            bool: 정지 성공 여부
+        """
+        try:
+            self.logger.warning("비상 정지 실행")
+            
+            # 즉시 중립 신호 전송
+            self._set_pwm_pulse_width(self.config.neutral_pulse_width)
+            
+            self.current_speed = 0.0
+            self.state = MotorState.STOPPED
+            self.last_command_time = time.time()
+            
+            if self.on_state_change:
+                self.on_state_change(self.state)
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"비상 정지 실패: {e}")
+            self.state = MotorState.ERROR
+            if self.on_error:
+                self.on_error(f"비상 정지 실패: {e}")
+            return False
+    
+    def get_status(self) -> dict:
+        """
+        현재 상태 정보 반환
+        
+        Returns:
+            dict: 상태 정보
+        """
+        return {
+            "state": self.state.value,
+            "speed": self.current_speed,
+            "is_armed": self.is_armed,
+            "last_command_time": self.last_command_time,
+            "config": {
+                "channel": self.config.channel,
+                "frequency": self.config.frequency,
+                "min_pulse_width": self.config.min_pulse_width,
+                "max_pulse_width": self.config.max_pulse_width,
+                "neutral_pulse_width": self.config.neutral_pulse_width,
+            }
+        }
+    
+    def cleanup(self):
+        """리소스 정리"""
+        try:
+            self.logger.info("ESC 제어기 정리 중...")
+            
+            # 안전 모니터링 스레드 종료
+            self.safety_running = False
+            if self.safety_thread and self.safety_thread.is_alive():
+                self.safety_thread.join(timeout=1.0)
+            
+            # 모터 정지
+            self.emergency_stop()
+            
+            # PWM 정리
+            if self.pi:
+                self.pi.set_servo_pulsewidth(self.config.channel, 0)
+                self.pi.stop()
+            elif self.pwm:
+                self.pwm.stop()
+                GPIO.cleanup()
+            
+            self.logger.info("ESC 제어기 정리 완료")
+            
+        except Exception as e:
+            self.logger.error(f"정리 중 오류 발생: {e}")
+    
+    def __enter__(self):
+        """컨텍스트 매니저 진입"""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """컨텍스트 매니저 종료"""
+        self.cleanup()
+
+
+# 사용 예제
+if __name__ == "__main__":
+    # 로깅 설정
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    # ESC 제어기 생성
+    config = MotorConfig(
+        channel=1,
+        frequency=50,
+        min_pulse_width=1000,
+        max_pulse_width=2000,
+        neutral_pulse_width=1500
+    )
+    
+    with ESCController(config) as esc:
+        # 상태 변화 콜백 설정
+        def on_state_change(state):
+            print(f"모터 상태 변경: {state.value}")
+        
+        def on_error(error_msg):
+            print(f"오류 발생: {error_msg}")
+        
+        esc.on_state_change = on_state_change
+        esc.on_error = on_error
+        
+        # ESC ARM
+        if esc.arm():
+            print("ESC ARM 성공")
+            
             try:
-                if self._pca and hasattr(self._pca, "deinit"):
-                    self._pca.deinit()
-            except Exception:
-                pass
-
-    def set_gear(self, gear: str) -> None:
-        g = (gear or '').upper()
-        if g not in ('P', 'R', 'N', 'D'):
-            logger.warning(f"Ignoring invalid gear '{gear}'")
-            return
-        logger.info(f"Gear -> {g}")
-        self._gear = g
-        if g in ('P', 'N'):
-            self._apply_esc_pulse(self.PULSE_NEU)
-
-    # ========= helpers =========
-    def _period_us(self) -> float:
-        return 1_000_000.0 / float(self.PCA9685_FREQ)  # ~20000us at 50Hz
-
-    def _us_to_duty(self, pulse_us: int) -> int:
-        # Adafruit lib uses 16-bit duty_cycle (0..65535)
-        period = self._period_us()
-        duty = int(max(0, min(65535, round((pulse_us / period) * 65535))))
-        return duty
-
-    def _apply_servo_pulse(self, pulse_us: int) -> None:
-        duty = self._us_to_duty(int(pulse_us))
-        self._pca.channels[self.CH_STEER].duty_cycle = duty
-
-    def _apply_esc_pulse(self, pulse_us: int) -> None:
-        duty = self._us_to_duty(int(pulse_us))
-        self._pca.channels[self.CH_ESC].duty_cycle = duty
-
-    def _set_led(self, ch: int, on: bool) -> None:
-        if self.LED_USE_PWM:
-            self._pca.channels[ch].duty_cycle = 65535 if on else 0
+                # 모터 제어 테스트
+                print("모터 정방향 50% 속도로 3초간 실행...")
+                esc.set_speed(0.5)
+                time.sleep(3)
+                
+                print("모터 정지...")
+                esc.stop()
+                time.sleep(1)
+                
+                print("모터 역방향 30% 속도로 3초간 실행...")
+                esc.set_speed(-0.3)
+                time.sleep(3)
+                
+                print("모터 정지...")
+                esc.stop()
+                
+            except KeyboardInterrupt:
+                print("\n사용자에 의해 중단됨")
+            finally:
+                esc.emergency_stop()
         else:
-            # ON=100% (no flicker), OFF=0%
-            self._pca.channels[ch].duty_cycle = 65535 if on else 0
-
-    def _set_taillight_brightness(self, percent: int) -> None:
-        percent = max(0, min(100, int(percent)))
-        if self.LED_USE_PWM:
-            duty = int(round(65535 * (percent / 100.0)))
-            self._pca.channels[self.CH_TAIL].duty_cycle = duty
-        else:
-            self._set_led(self.CH_TAIL, percent >= 50)
-
-    def _map_forward(self, v_pct: float) -> int:
-        v = max(0.0, min(100.0, v_pct))
-        return int(self.PULSE_NEU + (v / 100.0) * (self.PULSE_MAX - self.PULSE_NEU))
-
-    def _map_reverse(self, v_pct: float) -> int:
-        v = max(0.0, min(100.0, v_pct))
-        return int(self.PULSE_NEU - (v / 100.0) * (self.PULSE_NEU - self.PULSE_MIN))
+            print("ESC ARM 실패")
