@@ -31,6 +31,10 @@ def arm_esc():
     print("\nArming ESC...")
     # Most ESCs arm by receiving a neutral signal (stop).
     # Sending a 90-degree angle corresponds to a 1500µs pulse, the standard neutral position.
+    kit.servo[ESC_CHANNEL].angle = 180
+    time.sleep(2)
+    kit.servo[ESC_CHANNEL].angle = 0
+    time.sleep(2)
     kit.servo[ESC_CHANNEL].angle = 90
     print("✅ ESC Arming complete. Motor is ready.")
     time.sleep(1) # Wait a moment for the ESC to process the signal
