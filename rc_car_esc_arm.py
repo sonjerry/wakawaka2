@@ -6,7 +6,7 @@ kit = ServoKit(channels=16)
 kit.frequency = 50  # 50Hz로 명시적 설정
 
 # ESC 채널 번호 (예: 0번)
-esc_channel = 0
+esc_channel = 1
 
 # 펄스 폭을 angle로 매핑 (0° = 1000μs, 90° = 1500μs, 180° = 2000μs)
 def set_throttle(angle):
