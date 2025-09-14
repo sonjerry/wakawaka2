@@ -34,7 +34,7 @@ try:
     # 역방향: 90°에서 0°까지 천천히 하강
     for angle in range(90, -1, -5):
         set_throttle(angle)
-        time.sleep(0.5)
+        time.sleep(1)
 
     # 마무리: 중립 복귀
     set_throttle(90)
