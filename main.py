@@ -42,7 +42,7 @@ def map_steer_to_pulse(angle):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', VIDEO_SRC='rtsp://http://100.84.162.124:8889/cam')
 
 @socketio.on('connect')
 def handle_connect():
@@ -110,4 +110,4 @@ def handle_message(data):
         socketio.emit('update', {'axis': state['axis'], 'rpm': state['rpm'], 'speed': state['speed']})
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=8000, debug=True)
