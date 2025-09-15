@@ -42,7 +42,7 @@ def map_steer_to_pulse(angle):
 
 @app.route('/')
 def index():
-    return render_template('index.html', VIDEO_SRC='rtsp://http://100.84.162.124:8889/cam')
+    return render_template('index.html', VIDEO_SRC='http://100.84.162.124:8889/cam')
 
 @socketio.on('connect')
 def handle_connect():
