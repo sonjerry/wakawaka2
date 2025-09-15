@@ -40,9 +40,6 @@ def welcome_ceremony():
 def map_steer_to_pulse(angle):
     return int(SERVO_PULSE_MIN + (angle - STEER_MIN) * (SERVO_PULSE_MAX - SERVO_PULSE_MIN) / (STEER_MAX - STEER_MIN))
 
-@app.route('/')
-def index():
-    return render_template('index.html', VIDEO_SRC='http://100.84.162.124:8889/cam')
 
 @socketio.on('connect')
 def handle_connect():
