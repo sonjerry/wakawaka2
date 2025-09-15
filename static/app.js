@@ -1,16 +1,14 @@
 // static/app.js
-// 최소 구현: 키/버튼 입력 → 서버 전송, 조향은 steer_delta(자동 복귀 없음), 불필요 코드 제거
-
 (() => {
   "use strict";
 
   // ===== 설정 =====
   const AXIS_MIN = -50;
   const AXIS_MAX = 50;
-  const AXIS_RATE_PER_S = 140;     // W/S 누르고 있을 때 초당 변화량
-  const SEND_INTERVAL_MS = 70;     // axis 전송 주기
-  const STEER_STEP_DEG = 3;        // 조향 변화량(도)
-  const STEER_SEND_MS = 50;        // 조향 전송 주기
+  const AXIS_RATE_PER_S = 140;
+  const SEND_INTERVAL_MS = 70;
+  const STEER_STEP_DEG = 3;
+  const STEER_SEND_MS = 50;
 
   // ===== DOM =====
   const DOM = {
@@ -23,6 +21,10 @@
     axisBarFillNeg: document.getElementById("axisBarFillNeg"),
     axisReadout: document.getElementById("axisReadout"),
     netLatency: document.getElementById("netLatency"),
+    rpmReadout: document.getElementById("rpmReadout"),
+    speedReadout: document.getElementById("speedReadout"),
+    needleRpm: document.getElementById("needleRpm"),
+    needleSpeed: document.getElementById("needleSpeed"),
   };
 
   // ===== 상태 =====
@@ -30,82 +32,74 @@
     engine_running: false,
     gear: "P",
     head_on: false,
-    axis: 0,            // -50..50
+    axis: 0,
+    steer_angle: 0,
+    rpm: 0,
+    speed: 0,
   };
   const keyState = { w: false, s: false, a: false, d: false };
 
   // ===== WebSocket =====
-  let ws;
-  let isConnected = false;
-  let reconnectDelay = 1000;
-  const wsUrl = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws";
+  const socket = io.connect('ws://100.84.162.124:5000/socket.io/');
 
-  function connect() {
-    ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-      isConnected = true;
-      reconnectDelay = 1000;
-    };
-
-    ws.onclose = () => {
-      isConnected = false;
-      setTimeout(connect, reconnectDelay);
-      reconnectDelay = Math.min(reconnectDelay * 2, 30000);
-    };
-
-    ws.onmessage = (ev) => {
-      let msg;
-      try { msg = JSON.parse(ev.data); } catch { return; }
-
-      if (typeof msg.pong === "number") {
-        updateNetworkLatency(performance.now() - msg.pong);
-        return;
-      }
-      if (typeof msg.engine_running === "boolean") {
-        state.engine_running = msg.engine_running;
-        setClusterPower(state.engine_running);
-      }
-      if (typeof msg.head_on === "boolean") {
-        state.head_on = msg.head_on;
-        DOM.btnHead.classList.toggle("on", state.head_on);
-      }
-      if (typeof msg.gear === "string") {
-        state.gear = msg.gear;
-        updateGearUI();
-      }
-    };
-  }
-
-  function send(data) {
-    if (isConnected && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(data));
+  socket.on('update', (msg) => {
+    if (typeof msg.engine_running === "boolean") {
+      state.engine_running = msg.engine_running;
+      setClusterPower(state.engine_running);
     }
-  }
+    if (typeof msg.head_on === "boolean") {
+      state.head_on = msg.head_on;
+      DOM.btnHead.classList.toggle("on", state.head_on);
+    }
+    if (typeof msg.gear === "string") {
+      state.gear = msg.gear;
+      updateGearUI();
+    }
+    if (typeof msg.axis === "number") {
+      state.axis = msg.axis;
+      updateAxisBar();
+    }
+    if (typeof msg.rpm === "number") {
+      state.rpm = msg.rpm;
+      updateGauge(DOM.needleRpm, DOM.rpmReadout, state.rpm, 8000);
+    }
+    if (typeof msg.speed === "number") {
+      state.speed = msg.speed;
+      updateGauge(DOM.needleSpeed, DOM.speedReadout, Math.abs(state.speed), 200);
+      DOM.speedReadout.textContent = `${Math.round(Math.abs(state.speed))} km/h`;
+    }
+    if (typeof msg.steer_angle === "number") {
+      state.steer_angle = msg.steer_angle;
+    }
+  });
 
   // ping (RTT)
-  setInterval(() => send({ ping: performance.now() }), 1000);
+  setInterval(() => socket.emit('message', JSON.stringify({ ping: performance.now() })), 1000);
+
+  socket.on('pong', (msg) => {
+    updateNetworkLatency(performance.now() - msg.pong);
+  });
 
   // ===== 버튼 이벤트 =====
   DOM.gearButtons.forEach(b => b.addEventListener("click", () => {
-    send({ gear: b.dataset.gear });
+    socket.emit('message', JSON.stringify({ gear: b.dataset.gear }));
   }));
 
   DOM.btnHead.addEventListener("click", () => {
-    send({ head_toggle: true });
+    socket.emit('message', JSON.stringify({ head_toggle: true }));
   });
 
   DOM.btnEngine.addEventListener("click", () => {
-    send({ engine_toggle: true });
+    socket.emit('message', JSON.stringify({ engine_toggle: true }));
   });
 
   // ===== 키보드 이벤트 =====
   window.addEventListener("keydown", (e) => {
     const k = e.key.toLowerCase();
-    if (k in keyState && keyState[k]) return; // 중복 입력 방지
+    if (k in keyState && keyState[k]) return;
     if (k in keyState) keyState[k] = true;
 
-    if ("prnd".includes(k)) send({ gear: k.toUpperCase() });
+    if ("prnd".includes(k)) socket.emit('message', JSON.stringify({ gear: k.toUpperCase() }));
     if (k === "h") DOM.btnHead.click();
     if (k === "e") DOM.btnEngine.click();
   });
@@ -115,14 +109,14 @@
     if (k in keyState) keyState[k] = false;
   });
 
-  // ===== 조향: A/D 누르는 동안 주기적으로 steer_delta 전송 (자동 복귀 없음) =====
+  // ===== 조향: A/D 누르는 동안 주기적으로 steer_delta 전송 =====
   let steerTimer = null;
   function updateSteerLoop() {
     const wantSteer = keyState.a || keyState.d;
     if (wantSteer && !steerTimer) {
       steerTimer = setInterval(() => {
         const sign = keyState.a && !keyState.d ? -1 : (keyState.d && !keyState.a ? +1 : 0);
-        if (sign !== 0) send({ steer_delta: sign * STEER_STEP_DEG });
+        if (sign !== 0) socket.emit('message', JSON.stringify({ steer_delta: sign * STEER_STEP_DEG }));
       }, STEER_SEND_MS);
     } else if (!wantSteer && steerTimer) {
       clearInterval(steerTimer);
@@ -133,17 +127,15 @@
   // ===== axis 전송 루프 =====
   let lastAxisSend = 0;
   function mainLoop(ts) {
-    // axis 변화 (W/S 누르고 있을 때만)
-    const dt = 1 / 60; // 간단히 고정 step
+    const dt = 1 / 60;
     if (keyState.w && !keyState.s) {
       state.axis = clamp(state.axis + AXIS_RATE_PER_S * dt, AXIS_MIN, AXIS_MAX);
     } else if (keyState.s && !keyState.w) {
       state.axis = clamp(state.axis - AXIS_RATE_PER_S * dt, AXIS_MIN, AXIS_MAX);
     }
 
-    // axis 주기 전송
     if (ts - lastAxisSend >= SEND_INTERVAL_MS) {
-      send({ axis: Math.round(state.axis) });
+      socket.emit('message', JSON.stringify({ axis: Math.round(state.axis) }));
       lastAxisSend = ts;
       updateAxisBar();
     }
@@ -166,12 +158,18 @@
   }
 
   function updateAxisBar() {
-    const range = AXIS_MAX - 5; // deadzone 5와 유사 동작
+    const range = AXIS_MAX - 5;
     const posPct = state.axis > 5 ? (state.axis - 5) / range * 100 : 0;
     const negPct = state.axis < -5 ? (-state.axis - 5) / range * 100 : 0;
     DOM.axisBarFill.style.height = `${posPct}%`;
     DOM.axisBarFillNeg.style.height = `${negPct}%`;
     DOM.axisReadout.textContent = Math.round(state.axis);
+  }
+
+  function updateGauge(needle, readout, value, max) {
+    const angle = -120 + (value / max) * 240;
+    needle.style.transform = `translate(-50%, -100%) rotate(${angle}deg)`;
+    readout.textContent = Math.round(value);
   }
 
   function updateNetworkLatency(rtt) {
@@ -187,7 +185,6 @@
     setClusterPower(false);
     updateGearUI();
     updateAxisBar();
-    connect();
     requestAnimationFrame(mainLoop);
   });
 })();
