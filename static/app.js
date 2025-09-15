@@ -40,7 +40,7 @@
   const keyState = { w: false, s: false, a: false, d: false };
 
   // ===== WebSocket =====
-  const socket = io.connect('ws://100.84.162.124:5000/socket.io/');
+  const socket = io('http://100.84.162.124:8000'); // Socket.IO 연결, http 사용 (ws는 브라우저가 자동 처리)
 
   socket.on('update', (msg) => {
     if (typeof msg.engine_running === "boolean") {
