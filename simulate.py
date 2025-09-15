@@ -11,10 +11,11 @@ def map_axis_to_angle(axis: int, gear: str) -> int:
     axis = max(-50, min(50, int(axis)))
     g = (gear or '').upper()
     # Creeping deadzone
-    if -5 <= axis <= 5 and g == 'D':
+    if g == 'D' and -5 <= axis <= 5:
         return 141
-    if axis > 0 and g == 'D':
-        return int(120 + (axis / 50) * (180 - 120))
+    if g == 'D' and axis > 5:
+        # 5..50  -> 141..180 선형 매핑
+        return int(141 + ((axis - 5) / (50 - 5)) * (180 - 141))
     if axis > 0 and g == 'R':
         return int(120 - (axis / 50) * (120 - 65))
     return 120

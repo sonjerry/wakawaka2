@@ -56,6 +56,13 @@ def welcome_ceremony():
             time.sleep(dt)
     except Exception:
         pass
+    finally:
+        # 웰컴 후 아이들 700RPM
+        state['rpm'] = 700
+        try:
+            broadcast_update({'rpm': state['rpm']})
+        except Exception:
+            pass
 
 def map_steer_to_pulse(angle):
     return int(SERVO_PULSE_MIN + (angle - STEER_MIN) * (SERVO_PULSE_MAX - SERVO_PULSE_MIN) / (STEER_MAX - STEER_MIN))
@@ -96,7 +103,7 @@ def process_message_dict(msg: dict):
             state['steer_angle'] = 0
         elif state['engine_running']:
             state['engine_running'] = False
-            state['rpm'] = 0
+            state['rpm'] = 700
             set_throttle(120)
             state['throttle_angle'] = 120
             set_steer_angle(0)
@@ -146,8 +153,8 @@ def process_message_dict(msg: dict):
                 set_throttle(120)
                 state['throttle_angle'] = 120
         else:
-            # 엔진이 꺼져 있어도 축 입력은 반영해 시동 조건(브레이크) 판단 가능하게 함
-            state['rpm'] = 0
+            # 엔진 꺼짐: 계기판은 아이들 700RPM 표시, 속도 0
+            state['rpm'] = 700
             state['speed'] = 0
         broadcast_update({'axis': state['axis'], 'rpm': state['rpm'], 'speed': state['speed'], 'throttle_angle': state['throttle_angle']})
 

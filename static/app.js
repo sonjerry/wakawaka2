@@ -9,8 +9,8 @@
   const AXIS_MAX = 50;
   const AXIS_RATE_PER_S = 40;     // W/S 누르고 있을 때 초당 변화량
   const SEND_INTERVAL_MS = 70;     // axis 전송 주기
-  const STEER_STEP_DEG = 3;        // 조향 변화량(도)
-  const STEER_SEND_MS = 50;        // 조향 전송 주기
+  const STEER_STEP_DEG = 1;        // 조향 변화량(도) - 더 미세한 스텝
+  const STEER_SEND_MS = 17;        // 조향 전송 주기 - 같은 속도를 위한 고주기 전송
 
   // ===== DOM =====
   const DOM = {
@@ -243,7 +243,7 @@
     const MIN_DEG = -135; // 0일 때 7시 방향
     const MAX_DEG = 135;  // 최대치일 때 5시 방향
     const angle = MIN_DEG + (clamped / MAX_RPM) * (MAX_DEG - MIN_DEG);
-    if (DOM.needleRpm) DOM.needleRpm.style.transform = `rotate(${angle}deg)`;
+    if (DOM.needleRpm) DOM.needleRpm.style.transform = `translate(-50%, -100%) rotate(${angle}deg)`;
     if (DOM.readoutRpm) DOM.readoutRpm.textContent = Math.round(clamped);
   }
 
@@ -254,7 +254,7 @@
     const MIN_DEG = -135;
     const MAX_DEG = 135;
     const angle = MIN_DEG + (clamped / MAX_SPEED) * (MAX_DEG - MIN_DEG);
-    if (DOM.needleSpeed) DOM.needleSpeed.style.transform = `rotate(${angle}deg)`;
+    if (DOM.needleSpeed) DOM.needleSpeed.style.transform = `translate(-50%, -100%) rotate(${angle}deg)`;
     if (DOM.readoutSpeed) DOM.readoutSpeed.textContent = `${Math.round(abs)}%`;
   }
 
