@@ -39,12 +39,10 @@ def set_steer_angle(steer_deg_minus90_to_90: int) -> None:
         servo_angle = CENTER + (CENTER - LEFT_LIMIT) * (s / 90)
     kit.servo[STEER_CHANNEL].angle = int(max(0, min(180, round(servo_angle))))
 
-def set_throttle(angle: int) -> int:
-    # ESC는 각도 기반으로 제어 (0°=1000µs, 180°≈2198µs)
-    # 호출자가 65(후진 max) ~ 180(전진 max) 사이 값을 전달
-    angle = max(0, min(180, int(angle)))
+def set_throttle(angle):
+    pulse_width = int(1000 + (angle / 180) * 1198)  # 0°=1000μs, 90°≈1599μs, 180°≈2198μs
     kit.servo[ESC_CHANNEL].angle = angle
-    return angle
+    return pulse_width
 
 def arm_esc_sequence() -> None:
     # Arming: 90°(~1599µs) 1s → 120°(중립, ~1732µs) 1s
@@ -52,7 +50,6 @@ def arm_esc_sequence() -> None:
     time.sleep(0.5)
     set_throttle(120)
     time.sleep(0.5)
-    set_throttle(90)
     set_throttle(120)
     
 

@@ -16,6 +16,7 @@ state = {
     'head_on': False,
     'axis': 0,
     'steer_angle': 0,
+    'throttle_angle': 120,
     'rpm': 0,
     'speed': 0
 }
@@ -81,12 +82,15 @@ def process_message_dict(msg: dict):
             threading.Thread(target=arm_esc_sequence, daemon=True).start()
             threading.Thread(target=welcome_ceremony, daemon=True).start()
             set_steer_angle(0)
+            state['steer_angle'] = 0
         elif state['engine_running']:
             state['engine_running'] = False
             state['rpm'] = 0
             set_throttle(120)
+            state['throttle_angle'] = 120
             set_steer_angle(0)
-        broadcast_update({'engine_running': state['engine_running'], 'gear': state['gear'], 'rpm': state['rpm']})
+            state['steer_angle'] = 0
+        broadcast_update({'engine_running': state['engine_running'], 'gear': state['gear'], 'rpm': state['rpm'], 'steer_angle': state['steer_angle'], 'throttle_angle': state['throttle_angle']})
 
     if 'head_toggle' in msg and msg['head_toggle']:
         state['head_on'] = not state['head_on']
@@ -108,6 +112,7 @@ def process_message_dict(msg: dict):
         if state['engine_running']:
             angle = map_axis_to_angle(state['axis'], state['gear'])
             set_throttle(angle)
+            state['throttle_angle'] = angle
             if state['gear'] in ['P', 'N'] and state['axis'] > 0:
                 state['rpm'] = min(state['axis'] * 80, RPM_LIMIT_PN)
                 state['speed'] = 0
@@ -121,11 +126,12 @@ def process_message_dict(msg: dict):
                 state['rpm'] = 0
                 state['speed'] = 0
                 set_throttle(120)
+                state['throttle_angle'] = 120
         else:
             # 엔진이 꺼져 있어도 축 입력은 반영해 시동 조건(브레이크) 판단 가능하게 함
             state['rpm'] = 0
             state['speed'] = 0
-        broadcast_update({'axis': state['axis'], 'rpm': state['rpm'], 'speed': state['speed']})
+        broadcast_update({'axis': state['axis'], 'rpm': state['rpm'], 'speed': state['speed'], 'throttle_angle': state['throttle_angle']})
 
     return None
 

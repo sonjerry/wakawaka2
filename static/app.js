@@ -23,6 +23,8 @@
     axisBarFillNeg: document.getElementById("axisBarFillNeg"),
     axisReadout: document.getElementById("axisReadout"),
     netLatency: document.getElementById("netLatency"),
+    dbgSteer: document.getElementById("dbgSteer"),
+    dbgThrottle: document.getElementById("dbgThrottle"),
   };
 
   // ===== 상태 =====
@@ -74,6 +76,12 @@
       if (typeof msg.gear === "string") {
         state.gear = msg.gear;
         updateGearUI();
+      }
+      if (typeof msg.steer_angle === "number") {
+        DOM.dbgSteer && (DOM.dbgSteer.textContent = `${Math.round(msg.steer_angle)}°`);
+      }
+      if (typeof msg.throttle_angle === "number") {
+        DOM.dbgThrottle && (DOM.dbgThrottle.textContent = `${Math.round(msg.throttle_angle)}°`);
       }
     };
   }
