@@ -21,8 +21,8 @@
     axisBarFillNeg: document.getElementById("axisBarFillNeg"),
     axisReadout: document.getElementById("axisReadout"),
     netLatency: document.getElementById("netLatency"),
-    rpmReadout: document.getElementById("rpmReadout"),
-    speedReadout: document.getElementById("speedReadout"),
+    rpmReadout: document.getElementById("readoutRpm"),
+    speedReadout: document.getElementById("readoutSpeed"),
     needleRpm: document.getElementById("needleRpm"),
     needleSpeed: document.getElementById("needleSpeed"),
   };
@@ -40,7 +40,7 @@
   const keyState = { w: false, s: false, a: false, d: false };
 
   // ===== WebSocket =====
-  const socket = io('http://100.84.162.124:8000'); // Socket.IO 연결, http 사용 (ws는 브라우저가 자동 처리)
+  const socket = io(window.location.origin, { transports: ["websocket", "polling"] });
 
   socket.on('update', (msg) => {
     if (typeof msg.engine_running === "boolean") {
