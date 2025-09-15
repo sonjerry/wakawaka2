@@ -41,6 +41,10 @@ def map_steer_to_pulse(angle):
     return int(SERVO_PULSE_MIN + (angle - STEER_MIN) * (SERVO_PULSE_MAX - SERVO_PULSE_MIN) / (STEER_MAX - STEER_MIN))
 
 
+@app.route('/')
+def index():
+    return render_template('index.html')
+
 @socketio.on('connect')
 def handle_connect():
     emit('update', state)
@@ -108,7 +112,3 @@ def handle_message(data):
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=8000, debug=True)
-
-@app.route('/')
-def index():
-    return render_template('templates/index.html')
