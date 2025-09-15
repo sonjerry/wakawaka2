@@ -20,10 +20,10 @@ def set_throttle(angle):
 def set_steer_angle(steer_deg_minus90_to_90: int) -> int:
     """
     - 논리 조향 입력(-90..+90)을 서보 각도로 변환하여 설정
-    - 서보 110° ≈ 중립, 좌 60° 근처, 우 180° 근처로 선형 매핑
+    - 서보 129° ≈ 중립, 좌 60° 근처, 우 180° 근처로 선형 매핑
     - 반환값: 실제 설정된 서보 각도(정수)
     """
-    CENTER = 110
+    CENTER = 129
     LEFT_LIMIT = 60
     RIGHT_LIMIT = 180
 
@@ -76,13 +76,13 @@ try:
             print("잘못된 입력. w/s/a/d/c/q 중 선택하세요.")
 
     # 마무리: 중립 복귀
-    set_throttle(90)
+    set_throttle(120)
     set_steer_angle(0)
     print("프로그램 종료. 중립으로 설정.")
 
 except KeyboardInterrupt:
     pass
 finally:
-    set_throttle(90)  # 안전 중립 복귀
+    set_throttle(120)  # 안전 중립 복귀
     set_steer_angle(0)
     print("프로그램 강제 종료. 중립으로 설정.")

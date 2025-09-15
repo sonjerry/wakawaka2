@@ -12,18 +12,18 @@ kit.frequency = 50  # 50Hz로 명시적 설정
 
 
 def init_hardware() -> None:
-    # 조향: 서보 120°를 중립으로 사용, ESC: 120° 중립
-    set_steer_angle(110)
+    # 조향: 서보 129°를 중립으로 사용, ESC: 120° 중립
+    set_steer_angle(0)
     set_throttle(120)
 
 def set_steer_angle(steer_deg_minus90_to_90: int) -> None:
     """
     차량 조향 입력(-90..+90)을 서보 각도로 변환.
-    - 서보 120° = 중립
+    - 서보 129° = 중립
     - 왼쪽 한계 60°, 오른쪽 한계 180°
     - 음수/양수 구간에 대해 비대칭 선형 매핑
     """
-    CENTER = 110
+    CENTER = 129
     LEFT_LIMIT = 60
     RIGHT_LIMIT = 180
 
@@ -47,6 +47,7 @@ def arm_esc_sequence() -> None:
     time.sleep(0.5)
     set_throttle(120)
     time.sleep(0.5)
+    set_throttle(90)
+    time.sleep(0.5)
     set_throttle(120)
-    
 
