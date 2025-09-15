@@ -65,6 +65,7 @@
       if (typeof msg.engine_running === "boolean") {
         state.engine_running = msg.engine_running;
         setClusterPower(state.engine_running);
+        updateGearUI();
       }
       if (typeof msg.head_on === "boolean") {
         state.head_on = msg.head_on;
@@ -105,7 +106,7 @@
     if (k in keyState && keyState[k]) return; // 중복 입력 방지
     if (k in keyState) keyState[k] = true;
 
-    if ("prnd".includes(k)) send({ gear: k.toUpperCase() });
+    // 키보드로 기어 변경 기능 제거 (충돌 방지)
     if (k === "h") DOM.btnHead.click();
     if (k === "e") DOM.btnEngine.click();
   });
@@ -161,8 +162,8 @@
   }
 
   function updateGearUI() {
-    DOM.gearIndicator.textContent = state.gear;
-    DOM.gearButtons.forEach(el => el.classList.toggle("active", el.dataset.gear === state.gear));
+    DOM.gearIndicator.textContent = state.engine_running ? state.gear : "";
+    DOM.gearButtons.forEach(el => el.classList.toggle("active", state.engine_running && el.dataset.gear === state.gear));
   }
 
   function updateAxisBar() {

@@ -26,8 +26,8 @@ def set_steer_angle(steer_deg_minus90_to_90: int) -> None:
     - 왼쪽 한계 60°, 오른쪽 한계 180°
     - 음수/양수 구간에 대해 비대칭 선형 매핑
     """
-    CENTER = 120
-    LEFT_LIMIT = 60
+    CENTER = 110
+    LEFT_LIMIT = 50
     RIGHT_LIMIT = 180
 
     s = max(-90, min(90, int(steer_deg_minus90_to_90)))
@@ -50,6 +50,8 @@ def arm_esc_sequence() -> None:
     # Arming: 90°(~1599µs) 1s → 120°(중립, ~1732µs) 1s
     set_throttle(90)
     time.sleep(1)
-    set_throttle(120)
+    set_throttle(180)
     time.sleep(1)
+    set_throttle(120)
+    
 

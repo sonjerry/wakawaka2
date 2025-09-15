@@ -106,7 +106,7 @@ def process_message_dict(msg: dict):
     if 'axis' in msg:
         state['axis'] = max(AXIS_MIN, min(AXIS_MAX, msg['axis']))
         if state['engine_running']:
-            angle = map_axis_to_angle(state['axis'])
+            angle = map_axis_to_angle(state['axis'], state['gear'])
             set_throttle(angle)
             if state['gear'] in ['P', 'N'] and state['axis'] > 0:
                 state['rpm'] = min(state['axis'] * 80, RPM_LIMIT_PN)
