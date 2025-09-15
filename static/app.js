@@ -25,6 +25,10 @@
     netLatency: document.getElementById("netLatency"),
     dbgSteer: document.getElementById("dbgSteer"),
     dbgThrottle: document.getElementById("dbgThrottle"),
+    needleRpm: document.getElementById("needleRpm"),
+    readoutRpm: document.getElementById("readoutRpm"),
+    needleSpeed: document.getElementById("needleSpeed"),
+    readoutSpeed: document.getElementById("readoutSpeed"),
   };
 
   // ===== 상태 =====
@@ -82,6 +86,12 @@
       }
       if (typeof msg.throttle_angle === "number") {
         DOM.dbgThrottle && (DOM.dbgThrottle.textContent = `${Math.round(msg.throttle_angle)}°`);
+      }
+      if (typeof msg.rpm === "number") {
+        updateRpm(msg.rpm);
+      }
+      if (typeof msg.speed === "number") {
+        updateSpeed(msg.speed);
       }
     };
   }
@@ -189,6 +199,24 @@
     else if (rtt >= 80) color = "#ffd866";
     DOM.netLatency.textContent = `${Math.round(rtt)} ms`;
     DOM.netLatency.style.color = color;
+  }
+
+  // ===== 게이지 업데이트 =====
+  function updateRpm(rpm) {
+    const MAX_RPM = 8000;
+    const clamped = rpm < 0 ? 0 : (rpm > MAX_RPM ? MAX_RPM : rpm);
+    const angle = (clamped / MAX_RPM) * 270; // 0..270deg 스윕 가정
+    if (DOM.needleRpm) DOM.needleRpm.style.transform = `rotate(${angle}deg)`;
+    if (DOM.readoutRpm) DOM.readoutRpm.textContent = Math.round(clamped);
+  }
+
+  function updateSpeed(speed) {
+    const MAX_SPEED = 120; // 임의 스케일 (UI용)
+    const abs = Math.abs(speed);
+    const clamped = abs > MAX_SPEED ? MAX_SPEED : abs;
+    const angle = (clamped / MAX_SPEED) * 270;
+    if (DOM.needleSpeed) DOM.needleSpeed.style.transform = `rotate(${angle}deg)`;
+    if (DOM.readoutSpeed) DOM.readoutSpeed.textContent = `${Math.round(abs)}%`;
   }
 
   // ===== 시작 =====

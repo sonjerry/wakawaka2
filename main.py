@@ -35,15 +35,25 @@ init_hardware()
 
 def welcome_ceremony():
     global state
-    state['rpm'] = RPM_LIMIT_PN
     try:
-        broadcast_update({'rpm': state['rpm']})
-    except Exception:
-        pass
-    time.sleep(1)
-    state['rpm'] = 0
-    try:
-        broadcast_update({'rpm': state['rpm']})
+        # 2초 동안 0 -> RPM_LIMIT_PN 상승
+        duration_up = 2.0
+        steps = 40
+        dt = duration_up / steps
+        for i in range(steps + 1):
+            rpm = int(RPM_LIMIT_PN * (i / steps))
+            state['rpm'] = rpm
+            broadcast_update({'rpm': state['rpm']})
+            time.sleep(dt)
+
+        # 2초 동안 RPM_LIMIT_PN -> 0 하강
+        duration_down = 2.0
+        dt = duration_down / steps
+        for i in range(steps + 1):
+            rpm = int(RPM_LIMIT_PN * (1 - i / steps))
+            state['rpm'] = rpm
+            broadcast_update({'rpm': state['rpm']})
+            time.sleep(dt)
     except Exception:
         pass
 
