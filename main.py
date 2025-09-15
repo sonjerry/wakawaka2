@@ -1,12 +1,10 @@
 from flask import Flask, render_template
 from flask_sock import Sock
-import board
-import busio
-from adafruit_pca9685 import PCA9685
 import time
 import threading
 import json
-from simulate import map_axis_to_pulse
+from simulate import map_axis_to_angle
+from hardware import init_hardware, set_steer_angle, set_throttle, arm_esc_sequence
 
 app = Flask(__name__)
 sock = Sock(app)
@@ -31,24 +29,8 @@ STEER_MAX = 90
 SERVO_PULSE_MIN = 1000
 SERVO_PULSE_MAX = 2000
 
-# ===== PCA9685 실제 하드웨어 초기화 =====
-i2c = busio.I2C(board.SCL, board.SDA)
-pca = PCA9685(i2c, address=0x40)
-pca.frequency = 50
-
-# 하드웨어 채널 매핑
-STEER_CHANNEL = 0
-ESC_CHANNEL = 1
-
-def us_to_duty_cycle(us, freq=50):
-    period_us = 1_000_000 / freq
-    duty_0_1 = us / period_us
-    duty_16bit = int(max(0.0, min(1.0, duty_0_1)) * 65535)
-    return duty_16bit
-
-# 부팅 시 중립값으로 초기화 (조향 1500µs, ESC 1798µs)
-pca.channels[STEER_CHANNEL].duty_cycle = us_to_duty_cycle(1500)
-pca.channels[ESC_CHANNEL].duty_cycle = us_to_duty_cycle(1798)
+# 하드웨어 초기화 (조향 중앙, ESC 중립)
+init_hardware()
 
 def welcome_ceremony():
     global state
@@ -98,12 +80,12 @@ def process_message_dict(msg: dict):
             state['gear'] = 'P'
             threading.Thread(target=arm_esc_sequence, daemon=True).start()
             threading.Thread(target=welcome_ceremony, daemon=True).start()
-            pca.channels[STEER_CHANNEL].duty_cycle = us_to_duty_cycle(1500)
+            set_steer_angle(0)
         elif state['engine_running']:
             state['engine_running'] = False
             state['rpm'] = 0
-            pca.channels[ESC_CHANNEL].duty_cycle = us_to_duty_cycle(1798)
-            pca.channels[STEER_CHANNEL].duty_cycle = us_to_duty_cycle(1500)
+            set_throttle(120)
+            set_steer_angle(0)
         broadcast_update({'engine_running': state['engine_running'], 'gear': state['gear'], 'rpm': state['rpm']})
 
     if 'head_toggle' in msg and msg['head_toggle']:
@@ -118,15 +100,14 @@ def process_message_dict(msg: dict):
 
     if 'steer_delta' in msg and state['engine_running']:
         state['steer_angle'] = max(STEER_MIN, min(STEER_MAX, state['steer_angle'] + msg['steer_delta']))
-        pulse = map_steer_to_pulse(state['steer_angle'])
-        pca.channels[STEER_CHANNEL].duty_cycle = us_to_duty_cycle(pulse)
+        set_steer_angle(state['steer_angle'])
         broadcast_update({'steer_angle': state['steer_angle']})
 
     if 'axis' in msg:
         state['axis'] = max(AXIS_MIN, min(AXIS_MAX, msg['axis']))
         if state['engine_running']:
-            pulse = map_axis_to_pulse(state['axis'])
-            pca.channels[ESC_CHANNEL].duty_cycle = us_to_duty_cycle(pulse)
+            angle = map_axis_to_angle(state['axis'])
+            set_throttle(angle)
             if state['gear'] in ['P', 'N'] and state['axis'] > 0:
                 state['rpm'] = min(state['axis'] * 80, RPM_LIMIT_PN)
                 state['speed'] = 0
@@ -139,7 +120,7 @@ def process_message_dict(msg: dict):
             else:
                 state['rpm'] = 0
                 state['speed'] = 0
-                pca.channels[ESC_CHANNEL].duty_cycle = us_to_duty_cycle(1798)
+                set_throttle(120)
         else:
             # 엔진이 꺼져 있어도 축 입력은 반영해 시동 조건(브레이크) 판단 가능하게 함
             state['rpm'] = 0
@@ -173,16 +154,7 @@ def ws(ws):
             if ws in clients:
                 clients.remove(ws)
 
-# ===== Local arming sequence using the same PCA instance =====
-def arm_esc_sequence():
-    try:
-        pca.channels[ESC_CHANNEL].duty_cycle = us_to_duty_cycle(1599)
-        time.sleep(1)
-        pca.channels[ESC_CHANNEL].duty_cycle = us_to_duty_cycle(1799)
-        time.sleep(1)
-        pca.channels[ESC_CHANNEL].duty_cycle = us_to_duty_cycle(1798)
-    except Exception:
-        pass
+# Arming은 hardware.py의 arm_esc_sequence 사용
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)
