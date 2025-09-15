@@ -101,23 +101,28 @@ def process_message_dict(msg: dict):
         pca.set_pwm(0, 0, pulse)
         broadcast_update({'steer_angle': state['steer_angle']})
 
-    if 'axis' in msg and state['engine_running']:
+    if 'axis' in msg:
         state['axis'] = max(AXIS_MIN, min(AXIS_MAX, msg['axis']))
-        pulse = map_axis_to_pulse(state['axis'])
-        pca.set_pwm(1, 0, pulse)
-        if state['gear'] in ['P', 'N'] and state['axis'] > 0:
-            state['rpm'] = min(state['axis'] * 80, RPM_LIMIT_PN)
-            state['speed'] = 0
-        elif state['gear'] == 'D' and state['axis'] > 0:
-            state['rpm'] = min(state['axis'] * 100, 8000)
-            state['speed'] = state['axis'] * 2
-        elif state['gear'] == 'R' and state['axis'] > 0:
-            state['rpm'] = min(state['axis'] * 80, RPM_LIMIT_PN)
-            state['speed'] = -state['axis'] * 1.5
+        if state['engine_running']:
+            pulse = map_axis_to_pulse(state['axis'])
+            pca.set_pwm(1, 0, pulse)
+            if state['gear'] in ['P', 'N'] and state['axis'] > 0:
+                state['rpm'] = min(state['axis'] * 80, RPM_LIMIT_PN)
+                state['speed'] = 0
+            elif state['gear'] == 'D' and state['axis'] > 0:
+                state['rpm'] = min(state['axis'] * 100, 8000)
+                state['speed'] = state['axis'] * 2
+            elif state['gear'] == 'R' and state['axis'] > 0:
+                state['rpm'] = min(state['axis'] * 80, RPM_LIMIT_PN)
+                state['speed'] = -state['axis'] * 1.5
+            else:
+                state['rpm'] = 0
+                state['speed'] = 0
+                pca.set_pwm(1, 0, 1798)
         else:
+            # 엔진이 꺼져 있어도 축 입력은 반영해 시동 조건(브레이크) 판단 가능하게 함
             state['rpm'] = 0
             state['speed'] = 0
-            pca.set_pwm(1, 0, 1798)
         broadcast_update({'axis': state['axis'], 'rpm': state['rpm'], 'speed': state['speed']})
 
     return None
