@@ -54,7 +54,7 @@
     if (typeof msg.gear === "string") {
       state.gear = msg.gear;
       updateGearUI();
-    }
+    }  
     if (typeof msg.axis === "number") {
       state.axis = msg.axis;
       updateAxisBar();
