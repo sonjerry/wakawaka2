@@ -25,8 +25,8 @@ state = {
 AXIS_MIN = -50
 AXIS_MAX = 50
 RPM_LIMIT_PN = 4000
-STEER_MIN = -90
-STEER_MAX = 90
+STEER_MIN = -66
+STEER_MAX = 66
 SERVO_PULSE_MIN = 1000
 SERVO_PULSE_MAX = 2000
 
@@ -127,9 +127,16 @@ def process_message_dict(msg: dict):
             if state['gear'] in ['P', 'N'] and state['axis'] > 0:
                 state['rpm'] = min(state['axis'] * 80, RPM_LIMIT_PN)
                 state['speed'] = 0
-            elif state['gear'] == 'D' and state['axis'] > 0:
-                state['rpm'] = min(state['axis'] * 100, 8000)
-                state['speed'] = state['axis'] * 2
+            elif state['gear'] == 'D':
+                if -5 <= state['axis'] <= 5:
+                    state['rpm'] = 900
+                    state['speed'] = 2
+                elif state['axis'] > 0:
+                    state['rpm'] = min(state['axis'] * 100, 8000)
+                    state['speed'] = state['axis'] * 2
+                else:
+                    state['rpm'] = 0
+                    state['speed'] = 0
             elif state['gear'] == 'R' and state['axis'] > 0:
                 state['rpm'] = min(state['axis'] * 80, RPM_LIMIT_PN)
                 state['speed'] = -state['axis'] * 1.5

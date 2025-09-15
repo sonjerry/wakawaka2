@@ -185,11 +185,46 @@
   }
 
   function updateAxisBar() {
-    const range = AXIS_MAX - 5; // deadzone 5와 유사 동작
+    const range = AXIS_MAX - 5; // deadzone 5
     const posPct = state.axis > 5 ? (state.axis - 5) / range * 100 : 0;
     const negPct = state.axis < -5 ? (-state.axis - 5) / range * 100 : 0;
     DOM.axisBarFill.style.height = `${posPct}%`;
     DOM.axisBarFillNeg.style.height = `${negPct}%`;
+
+    // 색상/광도 동적 변경: R(빨강), N(노랑), D(파랑) 영역
+    // -50~-5: 빨강 계열, -5~5: 노랑, 5~50: 파랑
+    let glow = 0;
+    let colorTop = '';
+    let colorBottom = '';
+    const absAxis = Math.abs(state.axis);
+    if (state.axis < -5) {
+      const t = Math.min(1, (absAxis - 5) / 45); // -5..-50 → 0..1
+      glow = 6 + t * 18;
+      colorTop = `rgba(255, 100, 80, ${0.6 + 0.4 * t})`;
+      colorBottom = `rgba(255, 50, 30, ${0.6 + 0.4 * t})`;
+      DOM.axisBarFillNeg.style.background = `linear-gradient(${colorTop}, ${colorBottom})`;
+      DOM.axisBarFillNeg.style.boxShadow = `0 0 ${glow}px rgba(255, 60, 40, ${0.5 + 0.4 * t})`;
+      DOM.axisBarFill.style.boxShadow = 'none';
+    } else if (state.axis > 5) {
+      const t = Math.min(1, (absAxis - 5) / 45); // 5..50 → 0..1
+      glow = 6 + t * 18;
+      colorTop = `rgba(120, 200, 255, ${0.6 + 0.4 * t})`;
+      colorBottom = `rgba(60, 160, 255, ${0.6 + 0.4 * t})`;
+      DOM.axisBarFill.style.background = `linear-gradient(${colorTop}, ${colorBottom})`;
+      DOM.axisBarFill.style.boxShadow = `0 0 ${glow}px rgba(60, 160, 255, ${0.5 + 0.4 * t})`;
+      DOM.axisBarFillNeg.style.boxShadow = 'none';
+    } else {
+      // -5..5: 은은한 노랑 앰비언트
+      const t = absAxis / 5; // 0..1
+      glow = 4 + t * 8;
+      const y1 = `rgba(255, 220, 100, ${0.45 + 0.45 * t})`;
+      const y2 = `rgba(255, 200, 60, ${0.45 + 0.45 * t})`;
+      // 중앙 영역이므로 양/음 모두 살짝 빛남
+      DOM.axisBarFill.style.background = `linear-gradient(${y1}, ${y2})`;
+      DOM.axisBarFillNeg.style.background = `linear-gradient(${y1}, ${y2})`;
+      DOM.axisBarFill.style.boxShadow = `0 0 ${glow}px rgba(255, 210, 80, ${0.4 + 0.5 * t})`;
+      DOM.axisBarFillNeg.style.boxShadow = `0 0 ${glow}px rgba(255, 210, 80, ${0.4 + 0.5 * t})`;
+    }
     DOM.axisReadout.textContent = Math.round(state.axis);
   }
 
@@ -205,7 +240,9 @@
   function updateRpm(rpm) {
     const MAX_RPM = 8000;
     const clamped = rpm < 0 ? 0 : (rpm > MAX_RPM ? MAX_RPM : rpm);
-    const angle = (clamped / MAX_RPM) * 270; // 0..270deg 스윕 가정
+    const MIN_DEG = -135; // 0일 때 7시 방향
+    const MAX_DEG = 135;  // 최대치일 때 5시 방향
+    const angle = MIN_DEG + (clamped / MAX_RPM) * (MAX_DEG - MIN_DEG);
     if (DOM.needleRpm) DOM.needleRpm.style.transform = `rotate(${angle}deg)`;
     if (DOM.readoutRpm) DOM.readoutRpm.textContent = Math.round(clamped);
   }
@@ -214,7 +251,9 @@
     const MAX_SPEED = 120; // 임의 스케일 (UI용)
     const abs = Math.abs(speed);
     const clamped = abs > MAX_SPEED ? MAX_SPEED : abs;
-    const angle = (clamped / MAX_SPEED) * 270;
+    const MIN_DEG = -135;
+    const MAX_DEG = 135;
+    const angle = MIN_DEG + (clamped / MAX_SPEED) * (MAX_DEG - MIN_DEG);
     if (DOM.needleSpeed) DOM.needleSpeed.style.transform = `rotate(${angle}deg)`;
     if (DOM.readoutSpeed) DOM.readoutSpeed.textContent = `${Math.round(abs)}%`;
   }

@@ -27,7 +27,7 @@ def set_steer_angle(steer_deg_minus90_to_90: int) -> None:
     LEFT_LIMIT = 60
     RIGHT_LIMIT = 180
 
-    s = max(-90, min(90, int(steer_deg_minus90_to_90)))
+    s = max(-66, min(66, int(steer_deg_minus90_to_90)))
     if s >= 0:
         # 0..+90  -> 120..RIGHT_LIMIT 선형
         servo_angle = CENTER + (RIGHT_LIMIT - CENTER) * (s / 90)
