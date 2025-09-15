@@ -92,6 +92,7 @@ def process_message_dict(msg: dict):
             threading.Thread(target=arm_esc_sequence, daemon=True).start()
             threading.Thread(target=welcome_ceremony, daemon=True).start()
             set_steer_angle(0)
+            state['rpm'] = 700
             state['steer_angle'] = 0
         elif state['engine_running']:
             state['engine_running'] = False

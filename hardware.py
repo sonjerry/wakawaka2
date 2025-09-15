@@ -1,23 +1,20 @@
 from adafruit_servokit import ServoKit
 import time
 
+
 # 채널 매핑
 STEER_CHANNEL = 0  # 조향 서보
 ESC_CHANNEL = 1    # ESC
 
 # ServoKit 초기화
 kit = ServoKit(channels=16)
+kit.frequency = 50  # 50Hz로 명시적 설정
 
-# 공통 설정
-kit.servo[STEER_CHANNEL].set_pulse_width_range(1000, 2000)
-kit.servo[ESC_CHANNEL].set_pulse_width_range(1000, 2000)
-kit.servo[STEER_CHANNEL].actuation_range = 180
-kit.servo[ESC_CHANNEL].actuation_range = 180
 
 def init_hardware() -> None:
     # 조향: 서보 120°를 중립으로 사용, ESC: 120° 중립
-    set_steer_angle(0)
-    set_throttle(110)
+    set_steer_angle(110)
+    set_throttle(120)
 
 def set_steer_angle(steer_deg_minus90_to_90: int) -> None:
     """
@@ -28,7 +25,7 @@ def set_steer_angle(steer_deg_minus90_to_90: int) -> None:
     """
     CENTER = 110
     LEFT_LIMIT = 60
-    RIGHT_LIMIT = 190
+    RIGHT_LIMIT = 180
 
     s = max(-90, min(90, int(steer_deg_minus90_to_90)))
     if s >= 0:
