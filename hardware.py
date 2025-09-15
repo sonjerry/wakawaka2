@@ -17,7 +17,7 @@ kit.servo[ESC_CHANNEL].actuation_range = 180
 def init_hardware() -> None:
     # 조향: 서보 120°를 중립으로 사용, ESC: 120° 중립
     set_steer_angle(0)
-    set_throttle(120)
+    set_throttle(110)
 
 def set_steer_angle(steer_deg_minus90_to_90: int) -> None:
     """
@@ -27,8 +27,8 @@ def set_steer_angle(steer_deg_minus90_to_90: int) -> None:
     - 음수/양수 구간에 대해 비대칭 선형 매핑
     """
     CENTER = 110
-    LEFT_LIMIT = 50
-    RIGHT_LIMIT = 180
+    LEFT_LIMIT = 60
+    RIGHT_LIMIT = 190
 
     s = max(-90, min(90, int(steer_deg_minus90_to_90)))
     if s >= 0:
@@ -49,9 +49,10 @@ def set_throttle(angle: int) -> int:
 def arm_esc_sequence() -> None:
     # Arming: 90°(~1599µs) 1s → 120°(중립, ~1732µs) 1s
     set_throttle(90)
-    time.sleep(1)
-    set_throttle(180)
-    time.sleep(1)
+    time.sleep(0.5)
+    set_throttle(120)
+    time.sleep(0.5)
+    set_throttle(90)
     set_throttle(120)
     
 
