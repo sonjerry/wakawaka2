@@ -6,7 +6,7 @@ import json
 from simulate import PCA9685Mock, arm_esc, map_axis_to_pulse
 
 app = Flask(__name__)
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # 상태
 state = {
