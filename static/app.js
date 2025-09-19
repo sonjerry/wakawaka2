@@ -284,14 +284,14 @@
   }
 
   function updateSpeed(speed) {
-    const MAX_SPEED = 120; // 임의 스케일 (UI용)
+    const MAX_SPEED = 180; // 실제 자동차 눈금과 일치
     const abs = Math.abs(speed);
     const clamped = abs > MAX_SPEED ? MAX_SPEED : abs;
     const MIN_DEG = -135;
     const MAX_DEG = 135;
     const angle = MIN_DEG + (clamped / MAX_SPEED) * (MAX_DEG - MIN_DEG);
     if (DOM.needleSpeed) DOM.needleSpeed.style.transform = `translate(-50%, -100%) rotate(${angle}deg)`;
-    if (DOM.readoutSpeed) DOM.readoutSpeed.textContent = `${Math.round(abs)}%`;
+    if (DOM.readoutSpeed) DOM.readoutSpeed.textContent = `${Math.round(abs)}`;
   }
 
   // ===== 시작 =====
@@ -299,7 +299,56 @@
     setClusterPower(false);
     updateGearUI();
     updateAxisBar();
+    buildGaugeTicks();
     connect();
     requestAnimationFrame(mainLoop);
   });
+
+  // ===== 눈금/숫자 생성 =====
+  function buildGaugeTicks() {
+    const rpmGauge = DOM.needleRpm ? DOM.needleRpm.closest('.gauge') : null;
+    const speedGauge = DOM.needleSpeed ? DOM.needleSpeed.closest('.gauge') : null;
+    if (rpmGauge) buildRpmTicks(rpmGauge);
+    if (speedGauge) buildSpeedTicks(speedGauge);
+  }
+
+  function mapRange(value, inMin, inMax, outMin, outMax) {
+    return outMin + (value - inMin) * (outMax - outMin) / (inMax - inMin);
+  }
+
+  function createTick(angleDeg, labelText, isMajor) {
+    const tick = document.createElement('div');
+    tick.className = `tick ${isMajor ? 'major' : 'minor'}`;
+    tick.style.setProperty('--angle', `${angleDeg}deg`);
+    if (labelText !== null && labelText !== undefined) {
+      const lab = document.createElement('div');
+      lab.className = 'tick-label';
+      lab.textContent = labelText;
+      tick.appendChild(lab);
+    }
+    return tick;
+  }
+
+  function buildRpmTicks(gaugeEl) {
+    const container = document.createElement('div');
+    container.className = 'gauge-ticks';
+    // 1~8 (1000rpm 간격) 주요 숫자 표시
+    for (let i = 1; i <= 8; i++) {
+      const rpm = i * 1000;
+      const angle = mapRange(rpm, 0, 8000, -135, 135);
+      container.appendChild(createTick(angle, String(i), true));
+    }
+    gaugeEl.appendChild(container);
+  }
+
+  function buildSpeedTicks(gaugeEl) {
+    const container = document.createElement('div');
+    container.className = 'gauge-ticks';
+    // 0~180, 20 간격으로 표시
+    for (let v = 0; v <= 180; v += 20) {
+      const angle = mapRange(v, 0, 180, -135, 135);
+      container.appendChild(createTick(angle, String(v), true));
+    }
+    gaugeEl.appendChild(container);
+  }
 })();

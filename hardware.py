@@ -42,12 +42,5 @@ def set_throttle(angle):
     return pulse_width
 
 def arm_esc_sequence() -> None:
-    # Arming: 90°(~1599µs) 1s → 120°(중립, ~1732µs) 1s
-    set_throttle(90)
-    time.sleep(0.2)
-    set_throttle(120)
-    time.sleep(0.2)
-    set_throttle(90)
-    time.sleep(0.2)
     set_throttle(120)
 
