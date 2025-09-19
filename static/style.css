@@ -265,9 +265,9 @@ body.sport-mode-active .card {
   width: 4px;
   height: 46%;
   transform-origin: 50% 90%;
-  transform: translate(-50%, -100%) rotate(-120deg);
+  transform: translate(-50%, -100%) rotate(-135deg);
   border-radius: 2px;
-  transition: transform .10s ease-out, background .3s;
+  transition: transform .3s cubic-bezier(0.4, 0.0, 0.2, 1), background .3s;
   z-index: 10;
 }
 

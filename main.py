@@ -36,28 +36,40 @@ init_hardware()
 def welcome_ceremony():
     global state
     try:
-        # 2초 동안 0 -> RPM_LIMIT_PN 상승
-        duration_up = 2.0
-        steps = 40
+        # 3초 동안 0 -> RPM_LIMIT_PN 상승 (더 부드럽게)
+        duration_up = 3.0
+        steps = 60  # 더 많은 단계로 부드럽게
         dt = duration_up / steps
         for i in range(steps + 1):
-            rpm = int(RPM_LIMIT_PN * (i / steps))
+            # 이징 함수 적용 (ease-out)
+            t = i / steps
+            eased_t = 1 - (1 - t) ** 2  # quadratic ease-out
+            rpm = int(RPM_LIMIT_PN * eased_t)
             state['rpm'] = rpm
             broadcast_update({'rpm': state['rpm']})
             time.sleep(dt)
 
-        # 2초 동안 RPM_LIMIT_PN -> 0 하강
+        # 0.5초 유지
+        time.sleep(0.5)
+
+        # 2초 동안 RPM_LIMIT_PN -> 700 하강 (아이들까지)
         duration_down = 2.0
-        dt = duration_down / steps
-        for i in range(steps + 1):
-            rpm = int(RPM_LIMIT_PN * (1 - i / steps))
+        steps_down = 40
+        dt = duration_down / steps_down
+        start_rpm = RPM_LIMIT_PN
+        target_rpm = 700
+        for i in range(steps_down + 1):
+            # 이징 함수 적용 (ease-in)
+            t = i / steps_down
+            eased_t = t ** 2  # quadratic ease-in
+            rpm = int(start_rpm - (start_rpm - target_rpm) * eased_t)
             state['rpm'] = rpm
             broadcast_update({'rpm': state['rpm']})
             time.sleep(dt)
     except Exception:
         pass
     finally:
-        # 웰컴 후 아이들 700RPM
+        # 웰컴 후 아이들 700RPM 확실히 설정
         state['rpm'] = 700
         try:
             broadcast_update({'rpm': state['rpm']})

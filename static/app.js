@@ -7,10 +7,10 @@
   // ===== 설정 =====
   const AXIS_MIN = -50;
   const AXIS_MAX = 50;
-  const AXIS_RATE_PER_S = 40;     // W/S 누르고 있을 때 초당 변화량
+  const AXIS_RATE_PER_S = 15;     // W/S 누르고 있을 때 초당 변화량 (40 -> 15로 감소)
   const SEND_INTERVAL_MS = 70;     // axis 전송 주기
-  const STEER_STEP_DEG = 1;        // 조향 변화량(도) - 더 미세한 스텝
-  const STEER_SEND_MS = 17;        // 조향 전송 주기 - 같은 속도를 위한 고주기 전송
+  const STEER_STEP_DEG = 3;        // 조향 변화량(도) - 더 빠른 조향을 위해 증가 (1 -> 3)
+  const STEER_SEND_MS = 12;        // 조향 전송 주기 - 더 빠른 조향을 위해 감소 (17 -> 12)
 
   // ===== DOM =====
   const DOM = {
@@ -237,9 +237,45 @@
   }
 
   // ===== 게이지 업데이트 =====
+  let currentRpm = 0;
+  let targetRpm = 0;
+  let rpmAnimationFrame = null;
+
   function updateRpm(rpm) {
+    targetRpm = rpm;
+    
+    // 웰컴 세레모니 중이거나 큰 변화가 있을 때는 더 부드러운 애니메이션
+    const rpmDiff = Math.abs(targetRpm - currentRpm);
+    if (rpmDiff > 100) {
+      // 큰 변화일 때 애니메이션 프레임 사용
+      if (!rpmAnimationFrame) {
+        animateRpm();
+      }
+    } else {
+      // 작은 변화일 때는 즉시 적용
+      currentRpm = targetRpm;
+      updateRpmDisplay();
+    }
+  }
+
+  function animateRpm() {
+    const diff = targetRpm - currentRpm;
+    const step = diff * 0.08; // 부드러운 보간
+    
+    if (Math.abs(diff) > 1) {
+      currentRpm += step;
+      updateRpmDisplay();
+      rpmAnimationFrame = requestAnimationFrame(animateRpm);
+    } else {
+      currentRpm = targetRpm;
+      updateRpmDisplay();
+      rpmAnimationFrame = null;
+    }
+  }
+
+  function updateRpmDisplay() {
     const MAX_RPM = 8000;
-    const clamped = rpm < 0 ? 0 : (rpm > MAX_RPM ? MAX_RPM : rpm);
+    const clamped = currentRpm < 0 ? 0 : (currentRpm > MAX_RPM ? MAX_RPM : currentRpm);
     const MIN_DEG = -135; // 0일 때 7시 방향
     const MAX_DEG = 135;  // 최대치일 때 5시 방향
     const angle = MIN_DEG + (clamped / MAX_RPM) * (MAX_DEG - MIN_DEG);
