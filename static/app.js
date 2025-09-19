@@ -15,6 +15,8 @@
   // ===== DOM =====
   const DOM = {
     body: document.body,
+    videoStream: document.getElementById("videoStream"),
+    videoFallback: document.getElementById("videoFallback"),
     gearIndicator: document.getElementById("gearIndicator"),
     gearButtons: [...document.querySelectorAll(".gear-btn")],
     btnHead: document.getElementById("btnHead"),
@@ -296,6 +298,7 @@
 
   // ===== 시작 =====
   document.addEventListener("DOMContentLoaded", () => {
+    initVideoFallback();
     setClusterPower(false);
     updateGearUI();
     updateAxisBar();
@@ -350,5 +353,45 @@
       container.appendChild(createTick(angle, String(v), true));
     }
     gaugeEl.appendChild(container);
+  }
+
+  // ===== 영상 폴백: img 실패 시 iframe 표시 =====
+  function initVideoFallback() {
+    const img = DOM.videoStream;
+    const iframe = DOM.videoFallback;
+    if (!img || !iframe) return;
+
+    // 초기 상태: iframe 숨김
+    iframe.style.display = 'none';
+
+    const showIframe = () => {
+      iframe.style.display = 'block';
+      img.style.display = 'none';
+    };
+
+    // 이미지 스트림이 에러일 경우 폴백
+    img.addEventListener('error', showIframe, { once: true });
+
+    // 혹시 이미지가 너무 작은 해상도로 오는 경우, DPI 상관없이 꽉 차지만
+    // 특정 서버가 MJPEG이 아닌 HTML 페이지를 반환할 때도 에러 없이 로드될 수 있음.
+    // 그런 경우 간단한 휴리스틱으로 전환 (자연 크기가 매우 작고 콘텐츠 타입이 불명확)
+    let checked = false;
+    const heuristicCheck = () => {
+      if (checked) return;
+      checked = true;
+      try {
+        if (img.naturalWidth && img.naturalHeight && (img.naturalWidth < 160 || img.naturalHeight < 90)) {
+          showIframe();
+        }
+      } catch (_) {}
+    };
+    // 로드 후 점검
+    img.addEventListener('load', heuristicCheck, { once: true });
+    // 2초 내 미로드 시 폴백 시도
+    setTimeout(() => {
+      if (img.complete === false || img.naturalWidth === 0) {
+        showIframe();
+      }
+    }, 2000);
   }
 })();

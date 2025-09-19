@@ -20,7 +20,8 @@
   <div class="toast" id="toast"></div>
 
   <div class="video-container">
-    <iframe src="http://100.84.162.124:8889/cam" allow="autoplay; fullscreen; picture-in-picture"></iframe>
+    <img id="videoStream" class="video-stream" src="http://100.84.162.124:8889/cam" alt="Camera stream" />
+    <iframe id="videoFallback" class="video-fallback-iframe" src="http://100.84.162.124:8889/cam" allow="autoplay; fullscreen; picture-in-picture" title="Camera fallback"></iframe>
   </div>
 
   <div class="main-layout">
