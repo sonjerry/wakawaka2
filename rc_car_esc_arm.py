@@ -41,17 +41,19 @@ def set_steer_angle(steer_deg_minus90_to_90: int) -> int:
 try:
     # 1. Arming 시퀀스
     print("Arming 시작...")
-    set_throttle(90)  # 1599μs 1초 유지
-    time.sleep(1)
-    set_throttle(120)  # 약 1732μs 1초 유지
-    time.sleep(1)
-    set_throttle(90)  # 중립 복귀
+    set_throttle(90)
+    time.sleep(0.2)
+    set_throttle(120)
+    time.sleep(0.2)
+    set_throttle(90)
+    time.sleep(0.2)
+    set_throttle(120)
     # 스티어링 초기 중앙
     set_steer_angle(0)
     print("Arming 완료. w/s=쓰로틀, a/d=조향, c=조향 중앙, q=종료.")
 
     # 2. 입력으로 각도 조절
-    current_angle = 90
+    current_angle = 120
     current_steer = 0  # -90..+90
     while True:
         command = input("명령 입력 (w:쓰로틀+, s:쓰로틀-, a:좌, d:우, c:중앙, q:종료): ").lower()
@@ -82,7 +84,11 @@ try:
 
 except KeyboardInterrupt:
     pass
-finally:
-    set_throttle(120)  # 안전 중립 복귀
-    set_steer_angle(0)
-    print("프로그램 강제 종료. 중립으로 설정.")
+finally: 
+    set_throttle(90)
+    time.sleep(0.2)
+    set_throttle(120)
+    time.sleep(0.2)
+    set_throttle(90)
+    time.sleep(0.2)
+    set_throttle(120)

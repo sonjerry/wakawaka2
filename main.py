@@ -36,36 +36,49 @@ init_hardware()
 def welcome_ceremony():
     global state
     try:
-        # 3초 동안 0 -> RPM_LIMIT_PN 상승 (더 부드럽게)
-        duration_up = 3.0
-        steps = 60  # 더 많은 단계로 부드럽게
-        dt = duration_up / steps
-        for i in range(steps + 1):
-            # 이징 함수 적용 (ease-out)
-            t = i / steps
-            eased_t = 1 - (1 - t) ** 2  # quadratic ease-out
-            rpm = int(RPM_LIMIT_PN * eased_t)
+        # 시간 기반 60fps 이징으로 더 매끄럽게 스윕
+        fps = 60.0
+        frame_dt = 1.0 / fps
+
+        # 0 -> RPM_LIMIT_PN 상승 (easeOutCubic)
+        duration_up = 2.4  # 약간 더 짧고 경쾌하게
+        start = time.perf_counter()
+        while True:
+            t = (time.perf_counter() - start) / duration_up
+            if t >= 1.0:
+                t = 1.0
+            eased = 1 - (1 - t) ** 3
+            rpm = int(RPM_LIMIT_PN * eased)
             state['rpm'] = rpm
             broadcast_update({'rpm': state['rpm']})
-            time.sleep(dt)
+            if t >= 1.0:
+                break
+            time.sleep(frame_dt)
 
-        # 0.5초 유지
-        time.sleep(0.5)
+        # 정상부 잠시 유지
+        time.sleep(0.35)
 
-        # 2초 동안 RPM_LIMIT_PN -> 700 하강 (아이들까지)
-        duration_down = 2.0
-        steps_down = 40
-        dt = duration_down / steps_down
+        # RPM_LIMIT_PN -> 700 하강 (easeInOutCubic)
+        duration_down = 2.2
+        start = time.perf_counter()
         start_rpm = RPM_LIMIT_PN
-        target_rpm = 700
-        for i in range(steps_down + 1):
-            # 이징 함수 적용 (ease-in)
-            t = i / steps_down
-            eased_t = t ** 2  # quadratic ease-in
-            rpm = int(start_rpm - (start_rpm - target_rpm) * eased_t)
+        end_rpm = 700
+        delta = start_rpm - end_rpm
+        while True:
+            t = (time.perf_counter() - start) / duration_down
+            if t >= 1.0:
+                t = 1.0
+            # easeInOutCubic
+            if t < 0.5:
+                eased = 4 * t * t * t
+            else:
+                eased = 1 - pow(-2 * t + 2, 3) / 2
+            rpm = int(start_rpm - delta * eased)
             state['rpm'] = rpm
             broadcast_update({'rpm': state['rpm']})
-            time.sleep(dt)
+            if t >= 1.0:
+                break
+            time.sleep(frame_dt)
     except Exception:
         pass
     finally:
