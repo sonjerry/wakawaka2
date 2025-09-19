@@ -42,6 +42,15 @@
   };
   const keyState = { w: false, s: false, a: false, d: false };
 
+  // ===== 웰컴 애니메이션 상태 =====
+  let isWelcomeAnimating = false;
+  let prevEngineRunning = false;
+  let queuedRpm = null;
+  let queuedSpeed = null;
+  const MAX_RPM = 8000;
+  const MAX_SPEED = 180;
+  let welcomeAnimRaf = null;
+
   // ===== WebSocket =====
   let ws;
   let isConnected = false;
@@ -71,9 +80,19 @@
         return;
       }
       if (typeof msg.engine_running === "boolean") {
+        const wasRunning = state.engine_running;
         state.engine_running = msg.engine_running;
         setClusterPower(state.engine_running);
         updateGearUI();
+        // 시동 OFF -> ON 시 로컬 웰컴 스윕 시작
+        if (state.engine_running && !prevEngineRunning) {
+          startWelcomeSweep();
+        }
+        // 시동 중 OFF되면 애니 즉시 취소
+        if (!state.engine_running && isWelcomeAnimating) {
+          cancelWelcomeSweep();
+        }
+        prevEngineRunning = state.engine_running;
       }
       if (typeof msg.head_on === "boolean") {
         state.head_on = msg.head_on;
@@ -90,10 +109,10 @@
         DOM.dbgThrottle && (DOM.dbgThrottle.textContent = `${Math.round(msg.throttle_angle)}°`);
       }
       if (typeof msg.rpm === "number") {
-        updateRpm(msg.rpm);
+        if (isWelcomeAnimating) queuedRpm = msg.rpm; else updateRpm(msg.rpm);
       }
       if (typeof msg.speed === "number") {
-        updateSpeed(msg.speed);
+        if (isWelcomeAnimating) queuedSpeed = msg.speed; else updateSpeed(msg.speed);
       }
     };
   }
@@ -244,6 +263,7 @@
   let rpmAnimationFrame = null;
 
   function updateRpm(rpm) {
+    if (isWelcomeAnimating) { queuedRpm = rpm; return; }
     targetRpm = rpm;
     
     // 웰컴 세레모니 중이거나 큰 변화가 있을 때는 더 부드러운 애니메이션
@@ -286,6 +306,7 @@
   }
 
   function updateSpeed(speed) {
+    if (isWelcomeAnimating) { queuedSpeed = speed; return; }
     const MAX_SPEED = 180; // 실제 자동차 눈금과 일치
     const abs = Math.abs(speed);
     const clamped = abs > MAX_SPEED ? MAX_SPEED : abs;
@@ -294,6 +315,109 @@
     const angle = MIN_DEG + (clamped / MAX_SPEED) * (MAX_DEG - MIN_DEG);
     if (DOM.needleSpeed) DOM.needleSpeed.style.transform = `translate(-50%, -100%) rotate(${angle}deg)`;
     if (DOM.readoutSpeed) DOM.readoutSpeed.textContent = `${Math.round(abs)}`;
+  }
+
+  // ===== 웰컴 스윕 애니메이션 (클라이언트 전용) =====
+  function startWelcomeSweep() {
+    if (isWelcomeAnimating) return;
+    isWelcomeAnimating = true;
+    queuedRpm = null;
+    queuedSpeed = null;
+
+    const upMs = 1000;
+    const holdMs = 200;
+    const downMs = 800;
+    const totalMs = upMs + holdMs + downMs;
+    const startTs = performance.now();
+
+    // 바늘 전환효과 제거(프레임 기반으로 직접 구동)
+    const origRpmTrans = DOM.needleRpm ? DOM.needleRpm.style.transition : "";
+    const origSpdTrans = DOM.needleSpeed ? DOM.needleSpeed.style.transition : "";
+    if (DOM.needleRpm) DOM.needleRpm.style.transition = "transform 0s linear";
+    if (DOM.needleSpeed) DOM.needleSpeed.style.transition = "transform 0s linear";
+
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+    const easeInCubic = (t) => t * t * t;
+
+    const MIN_DEG = -135;
+    const MAX_DEG = 135;
+
+    function step(now) {
+      const elapsed = now - startTs;
+      let rpmVal = 0;
+      let spdVal = 0;
+
+      if (elapsed <= upMs) {
+        const t = elapsed / upMs;
+        const p = easeOutCubic(t);
+        rpmVal = MAX_RPM * p;
+        spdVal = MAX_SPEED * p;
+      } else if (elapsed <= upMs + holdMs) {
+        rpmVal = MAX_RPM;
+        spdVal = MAX_SPEED;
+      } else if (elapsed <= totalMs) {
+        const t = (elapsed - upMs - holdMs) / downMs;
+        const p = easeInCubic(t);
+        rpmVal = MAX_RPM * (1 - p);
+        spdVal = MAX_SPEED * (1 - p);
+      } else {
+        // 종료
+        finish();
+        return;
+      }
+
+      // 바늘/숫자 업데이트(직접)
+      const rpmClamped = rpmVal < 0 ? 0 : (rpmVal > MAX_RPM ? MAX_RPM : rpmVal);
+      const rpmAngle = MIN_DEG + (rpmClamped / MAX_RPM) * (MAX_DEG - MIN_DEG);
+      if (DOM.needleRpm) DOM.needleRpm.style.transform = `translate(-50%, -100%) rotate(${rpmAngle}deg)`;
+      if (DOM.readoutRpm) DOM.readoutRpm.textContent = Math.round(rpmClamped);
+
+      const spdClamped = spdVal < 0 ? 0 : (spdVal > MAX_SPEED ? MAX_SPEED : spdVal);
+      const spdAngle = MIN_DEG + (spdClamped / MAX_SPEED) * (MAX_DEG - MIN_DEG);
+      if (DOM.needleSpeed) DOM.needleSpeed.style.transform = `translate(-50%, -100%) rotate(${spdAngle}deg)`;
+      if (DOM.readoutSpeed) DOM.readoutSpeed.textContent = `${Math.round(spdClamped)}`;
+
+      welcomeAnimRaf = requestAnimationFrame(step);
+    }
+
+    function finish() {
+      if (welcomeAnimRaf) {
+        cancelAnimationFrame(welcomeAnimRaf);
+        welcomeAnimRaf = null;
+      }
+      if (DOM.needleRpm) DOM.needleRpm.style.transition = origRpmTrans;
+      if (DOM.needleSpeed) DOM.needleSpeed.style.transition = origSpdTrans;
+      isWelcomeAnimating = false;
+      // 웰컴 중 수신한 최신 값을 반영
+      if (queuedRpm !== null) updateRpm(queuedRpm);
+      if (queuedSpeed !== null) updateSpeed(queuedSpeed);
+      queuedRpm = null;
+      queuedSpeed = null;
+    }
+
+    function cancel() {
+      if (welcomeAnimRaf) {
+        cancelAnimationFrame(welcomeAnimRaf);
+        welcomeAnimRaf = null;
+      }
+      if (DOM.needleRpm) DOM.needleRpm.style.transition = origRpmTrans;
+      if (DOM.needleSpeed) DOM.needleSpeed.style.transition = origSpdTrans;
+      isWelcomeAnimating = false;
+    }
+
+    welcomeAnimRaf = requestAnimationFrame(step);
+
+    // 취소 핸들러를 클로저 밖에서 접근 가능하게 바인딩
+    cancelWelcomeSweep = cancel;
+  }
+
+  function cancelWelcomeSweep() {
+    // startWelcomeSweep에서 바인딩됨. 여기는 안전 가드만 둠
+    isWelcomeAnimating = false;
+    if (welcomeAnimRaf) {
+      cancelAnimationFrame(welcomeAnimRaf);
+      welcomeAnimRaf = null;
+    }
   }
 
   // ===== 시작 =====
