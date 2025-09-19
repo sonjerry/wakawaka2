@@ -357,9 +357,9 @@ body.sport-mode-active .card {
 .tick-label {
   position: absolute;
   left: 50%;
-  /* 외곽에서 안쪽으로 살짝 들어오게 숫자 배치 */
-  top: 10px;
-  transform: translate(-50%, 0) rotate(calc(-1 * var(--angle)));
+  top: 50%;
+  /* 중심에서 해당 각도로 회전 → 바깥쪽으로 이동 → 수평 정렬 유지 위해 역회전 */
+  transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-44%) rotate(calc(-1 * var(--angle)));
   transform-origin: 50% 50%;
   color: #eaf3ff;
   font-weight: 700;

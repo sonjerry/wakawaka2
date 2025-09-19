@@ -9,8 +9,8 @@
   const AXIS_MAX = 50;
   const AXIS_RATE_PER_S = 15;     // W/S 누르고 있을 때 초당 변화량 (40 -> 15로 감소)
   const SEND_INTERVAL_MS = 70;     // axis 전송 주기
-  const STEER_STEP_DEG = 3;        // 조향 변화량(도) - 더 빠른 조향을 위해 증가 (1 -> 3)
-  const STEER_SEND_MS = 12;        // 조향 전송 주기 - 더 빠른 조향을 위해 감소 (17 -> 12)
+  const STEER_STEP_DEG = 2;        // 조향 변화량(도) - 더 빠른 조향을 위해 증가 (1 -> 3)
+  const STEER_SEND_MS = 17;        // 조향 전송 주기 - 더 빠른 조향을 위해 감소 (17 -> 12)
 
   // ===== DOM =====
   const DOM = {
@@ -443,17 +443,19 @@
     return outMin + (value - inMin) * (outMax - outMin) / (inMax - inMin);
   }
 
-  function createTick(angleDeg, labelText, isMajor) {
+  function createTick(angleDeg, isMajor) {
     const tick = document.createElement('div');
     tick.className = `tick ${isMajor ? 'major' : 'minor'}`;
     tick.style.setProperty('--angle', `${angleDeg}deg`);
-    if (labelText !== null && labelText !== undefined) {
-      const lab = document.createElement('div');
-      lab.className = 'tick-label';
-      lab.textContent = labelText;
-      tick.appendChild(lab);
-    }
     return tick;
+  }
+
+  function createTickLabel(angleDeg, labelText) {
+    const lab = document.createElement('div');
+    lab.className = 'tick-label';
+    lab.style.setProperty('--angle', `${angleDeg}deg`);
+    lab.textContent = labelText;
+    return lab;
   }
 
   function buildRpmTicks(gaugeEl) {
@@ -463,7 +465,8 @@
     for (let i = 1; i <= 8; i++) {
       const rpm = i * 1000;
       const angle = mapRange(rpm, 0, 8000, -135, 135);
-      container.appendChild(createTick(angle, String(i), true));
+      container.appendChild(createTick(angle, true));
+      container.appendChild(createTickLabel(angle, String(i)));
     }
     gaugeEl.appendChild(container);
   }
@@ -474,7 +477,8 @@
     // 0~180, 20 간격으로 표시
     for (let v = 0; v <= 180; v += 20) {
       const angle = mapRange(v, 0, 180, -135, 135);
-      container.appendChild(createTick(angle, String(v), true));
+      container.appendChild(createTick(angle, true));
+      container.appendChild(createTickLabel(angle, String(v)));
     }
     gaugeEl.appendChild(container);
   }
