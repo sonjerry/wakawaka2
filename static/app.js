@@ -39,6 +39,7 @@
     gear: "P",
     head_on: false,
     axis: 0,            // -50..50
+    throttleAngle: 120, // ESC 중립 기준
   };
   const keyState = { w: false, s: false, a: false, d: false };
 
@@ -76,6 +77,10 @@
         state.engine_running = msg.engine_running;
         setClusterPower(state.engine_running);
         updateGearUI();
+        // 엔진 버튼 시각효과 토글
+        if (DOM.btnEngine) {
+          DOM.btnEngine.classList.toggle('on', state.engine_running);
+        }
       }
       if (typeof msg.head_on === "boolean") {
         state.head_on = msg.head_on;
@@ -84,19 +89,21 @@
       if (typeof msg.gear === "string") {
         state.gear = msg.gear;
         updateGearUI();
+        updateSpeedFromThrottle();
       }
       if (typeof msg.steer_angle === "number") {
         DOM.dbgSteer && (DOM.dbgSteer.textContent = `${Math.round(msg.steer_angle)}°`);
       }
       if (typeof msg.throttle_angle === "number") {
-        DOM.dbgThrottle && (DOM.dbgThrottle.textContent = `${Math.round(msg.throttle_angle)}°`);
+        state.throttleAngle = msg.throttle_angle;
+        DOM.dbgThrottle && (DOM.dbgThrottle.textContent = `${Math.round(state.throttleAngle)}°`);
+        updateSpeedFromThrottle();
       }
       if (typeof msg.rpm === "number") {
         updateRpm(msg.rpm);
       }
-      if (typeof msg.speed === "number") {
-        updateSpeed(msg.speed);
-      }
+      // 서버의 실제 속도 수신은 무시하고 (요구사항에 따라)
+      // speed 게이지는 쓰로틀 출력 기반으로만 갱신
     };
   }
 
@@ -258,16 +265,36 @@
     if (DOM.readoutRpm) DOM.readoutRpm.textContent = Math.round(clamped);
   }
 
-  function updateSpeed(speed) {
-    if (isWelcomeAnimating) { queuedSpeed = speed; return; }
-    const MAX_SPEED = 180; // 실제 자동차 눈금과 일치
-    const abs = Math.abs(speed);
-    const clamped = abs > MAX_SPEED ? MAX_SPEED : abs;
+  // ===== 쓰로틀 기반 Speed 게이지 =====
+  function updateSpeedFromThrottle() {
+    const MAX_DISPLAY = 180; // 게이지 최대 스케일
     const MIN_DEG = -135;
     const MAX_DEG = 135;
-    const angle = MIN_DEG + (clamped / MAX_SPEED) * (MAX_DEG - MIN_DEG);
+
+    const t = Number(state.throttleAngle);
+    let display = 0; // 0..MAX_DISPLAY
+
+    if (state.gear === 'D') {
+      // 120 → 0, 180 → MAX
+      if (t > 120) display = (t - 120) / 60 * MAX_DISPLAY;
+      else display = 0;
+    } else if (state.gear === 'R') {
+      // 120 → 0, 0 → MAX
+      if (t < 120) display = (120 - t) / 120 * MAX_DISPLAY;
+      else display = 0;
+    } else {
+      display = 0; // P/N 등은 0 표시
+    }
+
+    if (display < 0) display = 0;
+    if (display > MAX_DISPLAY) display = MAX_DISPLAY;
+
+    const angle = MIN_DEG + (display / MAX_DISPLAY) * (MAX_DEG - MIN_DEG);
     if (DOM.needleSpeed) DOM.needleSpeed.style.transform = `translate(-50%, -100%) rotate(${angle}deg)`;
-    if (DOM.readoutSpeed) DOM.readoutSpeed.textContent = `${Math.round(abs)}`;
+    if (DOM.readoutSpeed) {
+      const percent = Math.round(display / MAX_DISPLAY * 100);
+      DOM.readoutSpeed.textContent = `${percent}%`;
+    }
   }
 
   // 웰컴 스윕 제거됨
@@ -278,62 +305,11 @@
     setClusterPower(false);
     updateGearUI();
     updateAxisBar();
-    buildGaugeTicks();
     connect();
     requestAnimationFrame(mainLoop);
   });
 
-  // ===== 눈금/숫자 생성 =====
-  function buildGaugeTicks() {
-    const rpmGauge = DOM.needleRpm ? DOM.needleRpm.closest('.gauge') : null;
-    const speedGauge = DOM.needleSpeed ? DOM.needleSpeed.closest('.gauge') : null;
-    if (rpmGauge) buildRpmTicks(rpmGauge);
-    if (speedGauge) buildSpeedTicks(speedGauge);
-  }
-
-  function mapRange(value, inMin, inMax, outMin, outMax) {
-    return outMin + (value - inMin) * (outMax - outMin) / (inMax - inMin);
-  }
-
-  function createTick(angleDeg, isMajor) {
-    const tick = document.createElement('div');
-    tick.className = `tick ${isMajor ? 'major' : 'minor'}`;
-    tick.style.setProperty('--angle', `${angleDeg}deg`);
-    return tick;
-  }
-
-  function createTickLabel(angleDeg, labelText) {
-    const lab = document.createElement('div');
-    lab.className = 'tick-label';
-    lab.style.setProperty('--angle', `${angleDeg}deg`);
-    lab.textContent = labelText;
-    return lab;
-  }
-
-  function buildRpmTicks(gaugeEl) {
-    const container = document.createElement('div');
-    container.className = 'gauge-ticks';
-    // 1~8 (1000rpm 간격) 주요 숫자 표시
-    for (let i = 1; i <= 8; i++) {
-      const rpm = i * 1000;
-      const angle = mapRange(rpm, 0, 8000, -135, 135);
-      container.appendChild(createTick(angle, true));
-      container.appendChild(createTickLabel(angle, String(i)));
-    }
-    gaugeEl.appendChild(container);
-  }
-
-  function buildSpeedTicks(gaugeEl) {
-    const container = document.createElement('div');
-    container.className = 'gauge-ticks';
-    // 0~180, 20 간격으로 표시
-    for (let v = 0; v <= 180; v += 20) {
-      const angle = mapRange(v, 0, 180, -135, 135);
-      container.appendChild(createTick(angle, true));
-      container.appendChild(createTickLabel(angle, String(v)));
-    }
-    gaugeEl.appendChild(container);
-  }
+  // (삭제됨) 눈금/숫자 생성 로직
 
   // ===== 영상 폴백: img 실패 시 iframe 표시 =====
   function initVideoFallback() {
