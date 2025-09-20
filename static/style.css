@@ -290,103 +290,44 @@ body.sport-mode-active .card {
 
 /* ==== 4. 계기판 (Gauge) ==== */
 
-.gauge-wrapper {
-  width: 180px;
+/* 숫자 속도 표시 (Tesla 스타일) */
+.speed-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 220px;
   height: 180px;
 }
 
-.gauge {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(17, 24, 39, .04) 0 58%, transparent 59% 100%),
-    conic-gradient(from -120deg, rgba(17, 24, 39, .10) 0 100deg, rgba(17, 24, 39, .06) 100deg 160deg, rgba(17, 24, 39, .03) 160deg 220deg, transparent 220deg 360deg);
-  border: 1px solid var(--border);
-  box-shadow: inset 0 6px 14px rgba(17,24,39,.08);
-  transition: filter .5s ease, opacity .5s ease;
+.tesla-speed {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
 }
 
-.cluster-off .gauge,
+.speed-value {
+  font-weight: 900;
+  font-size: 112px;
+  line-height: 1;
+  color: #0a0a0a; /* 진한 검정 */
+  letter-spacing: -2px;
+}
+
+.speed-unit {
+  font-weight: 700;
+  font-size: 22px;
+  color: #1f2937; /* slate-800 */
+  opacity: .8;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+
+.cluster-off .speed-value,
+.cluster-off .speed-unit,
 .cluster-off .center-info {
   filter: brightness(.35) saturate(.6);
   opacity: .6;
-  transition: filter .5s ease, opacity .5s ease, transform .5s ease;
 }
-
-.cluster-on .gauge,
-.cluster-on .center-info {
-  filter: none;
-  opacity: 1;
-}
-
-/* RPM 전용 redzone 제거됨 */
-
-.needle {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 4px;
-  height: 46%;
-  transform-origin: 50% 90%;
-  transform: translate(-50%, -100%) rotate(-135deg);
-  border-radius: 2px;
-  transition: transform .3s cubic-bezier(0.4, 0.0, 0.2, 1), background .3s;
-  z-index: 10;
-}
-
-/* #needleRpm 제거됨 */
-
-#needleSpeed {
-  background: linear-gradient(var(--needle-speed), #ff8a83);
-  box-shadow: 0 0 10px var(--needle-speed);
-}
-
-/* #needleRpm.redzone 제거됨 */
-
-.hub {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 40% 40%, #dfe6f9, #7282a8);
-  border: 1px solid rgba(255, 255, 255, .25);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, .5);
-  z-index: 11;
-}
-
-.label {
-  position: absolute;
-  left: 50%;
-  top: 18%;
-  transform: translate(-50%, -50%);
-  font-weight: 700;
-  letter-spacing: 2.4px;
-  font-size: 12px;
-  color: var(--muted);
-  text-shadow: none;
-  z-index: 12;
-}
-
-/* (삭제됨) .gauge-ticks, .tick, .tick-label 스타일 */
-
-.readout {
-  position: absolute;
-  left: 50%;
-  top: 67%;
-  transform: translate(-50%, -50%);
-  font-family: monospace;
-  font-size: 24px;
-  color: var(--ink);
-  text-shadow: none;
-  z-index: 12;
-}
-
-/* 자동차 방식: 속도계는 방향 표시 없음 */
 
 
 /* ==== 5. 기타 UI (입력 바, 네트워크 등) ==== */

@@ -27,8 +27,7 @@
     netLatency: document.getElementById("netLatency"),
     dbgSteer: document.getElementById("dbgSteer"),
     dbgThrottle: document.getElementById("dbgThrottle"),
-    needleSpeed: document.getElementById("needleSpeed"),
-    readoutSpeed: document.getElementById("readoutSpeed"),
+    speedValue: document.getElementById("speedValue"),
   };
 
   // ===== 상태 =====
@@ -251,12 +250,9 @@
 
   // RPM 관련 로직 제거됨
 
-  // ===== 쓰로틀 기반 Speed 게이지 =====
+  // ===== 쓰로틀 기반 Speed 숫자 표시 (Tesla 스타일) =====
   function updateSpeedFromThrottle() {
-    const MAX_DISPLAY = 180; // 게이지 최대 스케일
-    const MIN_DEG = -135;
-    const MAX_DEG = 135;
-
+    const MAX_DISPLAY = 180; // km/h 가정
     const t = Number(state.throttleAngle);
     let display = 0; // 0..MAX_DISPLAY
 
@@ -275,11 +271,8 @@
     if (display < 0) display = 0;
     if (display > MAX_DISPLAY) display = MAX_DISPLAY;
 
-    const angle = MIN_DEG + (display / MAX_DISPLAY) * (MAX_DEG - MIN_DEG);
-    if (DOM.needleSpeed) DOM.needleSpeed.style.transform = `translate(-50%, -100%) rotate(${angle}deg)`;
-    if (DOM.readoutSpeed) {
-      const percent = Math.round(display / MAX_DISPLAY * 100);
-      DOM.readoutSpeed.textContent = `${percent}%`;
+    if (DOM.speedValue) {
+      DOM.speedValue.textContent = String(Math.round(display));
     }
   }
 
