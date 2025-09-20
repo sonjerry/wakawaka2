@@ -81,8 +81,15 @@
           <!-- 차체 (상단을 뾰족 삼각형이 아닌 완만한 아치로 변경) -->
           <path class="car-body" fill="url(#steelGrad)" d="M36,52 Q80,30 124,52 L134,188 L120,236 L40,236 L26,188 Z" />
 
-          <!-- 루프/유리 (전면을 아치로) -->
-          <path class="car-roof" fill="url(#roofGrad)" d="M44,54 Q80,34 116,54 Z" />
+          <!-- 루프/유리: 사진과 유사한 3분할(전면유리/루프/적재함) -->
+          <g class="glass-group">
+            <path class="glass front-glass" fill="url(#roofGrad)" stroke="rgba(0,0,0,.35)" stroke-width="0.6"
+                  d="M44,54 Q80,34 116,54 L116,78 L44,78 Z" />
+            <rect class="glass mid-glass" x="48" y="82" width="64" height="58" rx="2"
+                  fill="#0f172a" stroke="rgba(0,0,0,.35)" stroke-width="0.6" />
+            <rect class="glass rear-bed" x="44" y="146" width="72" height="74" rx="3"
+                  fill="#0f172a" stroke="rgba(0,0,0,.35)" stroke-width="0.6" />
+          </g>
 
           <!-- 전조등: 전면 테두리 라이트바(외곽선) -->
           <g class="hl-outline-glow">
