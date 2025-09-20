@@ -78,23 +78,18 @@
             </linearGradient>
           </defs>
 
-          <!-- 차체 (사이버트럭 쐐기형) -->
-          <polygon class="car-body" fill="url(#steelGrad)" points="80,24 36,48 30,188 40,236 120,236 130,188 124,48" />
+          <!-- 차체 (사이버트럭 쐐기형, 상단 뾰족함 강조) -->
+          <polygon class="car-body" fill="url(#steelGrad)" points="80,22 32,52 26,188 40,236 120,236 134,188 128,52" />
 
           <!-- 루프/유리 -->
-          <polygon class="car-roof" fill="url(#roofGrad)" points="80,28 46,52 114,52" />
+          <polygon class="car-roof" fill="url(#roofGrad)" points="80,26 44,54 116,54" />
 
-          <!-- 라이트바 대비 플레이트 (밝은 배경에서도 선명) -->
-          <g class="lightbar-plate">
-            <rect x="42" y="27" width="76" height="8" rx="4" fill="rgba(0,0,0,0.25)" />
+          <!-- 전조등: 전면 테두리 라이트바(외곽선) -->
+          <g class="hl-outline-glow">
+            <path d="M36,52 L80,22 L124,52" fill="none" stroke="#e6f0ff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" filter="url(#lightGlow)" />
           </g>
-          <!-- 라이트바 글로우 (먼저 렌더링) -->
-          <g class="lightbar-glow">
-            <rect x="38" y="26" width="84" height="10" rx="5" fill="#e6f0ff" opacity="0.95" filter="url(#lightGlow)" />
-          </g>
-          <!-- 라이트바 본체 + 스트로크 -->
-          <g class="lightbar">
-            <rect x="44" y="28" width="72" height="6" rx="3" fill="#ffffff" stroke="rgba(0,0,0,.35)" stroke-width="0.6" />
+          <g class="hl-outline">
+            <path d="M36,52 L80,22 L124,52" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
           </g>
 
           <!-- 앞바퀴 (조향 회전) : 위쪽, 세로 배치 -->

@@ -150,6 +150,11 @@ body.sport-mode-active {
 .car-visual.headlight-on .lightbar-plate { opacity: 1; }
 .lightbar, .lightbar-glow, .lightbar-plate { opacity: 0; transition: opacity .18s ease; }
 
+/* 전면 테두리 라이트바 */
+.hl-outline, .hl-outline-glow { opacity: 0; transition: opacity .18s ease; }
+.car-visual.headlight-on .hl-outline,
+.car-visual.headlight-on .hl-outline-glow { opacity: 1; }
+
 .bottom-right-controls {
   align-items: flex-end;
   min-width: 150px;
