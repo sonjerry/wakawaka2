@@ -188,6 +188,12 @@
   function setClusterPower(on) {
     DOM.body.classList.toggle("cluster-on", on);
     DOM.body.classList.toggle("cluster-off", !on);
+    const pill = document.getElementById("statusPill");
+    if (pill) {
+      pill.textContent = on ? "READY" : "OFF";
+      pill.classList.toggle("on", on);
+      pill.classList.toggle("off", !on);
+    }
   }
 
   function updateGearUI() {

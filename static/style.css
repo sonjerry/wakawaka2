@@ -1,16 +1,16 @@
 /* style.css */
 
 :root {
-  --bg: #0a0f1e;
-  --ink: #e8edff;
-  --muted: #9fb2ff;
-  --border: rgba(255, 255, 255, .14);
-  --ice: #84d8ff;
-  --needle-rpm: #84d8ff;
-  --needle-speed: #ff554d;
-  --card: #0d1430;
-  --warn: #ff3030;
-  --sport-color: #ff604d;
+  --bg: #ffffff;
+  --ink: #111827;
+  --muted: #6b7280;
+  --border: rgba(17, 24, 39, .08);
+  --ice: #2d7cff;
+  --needle-rpm: #1f2937;
+  --needle-speed: #2d7cff;
+  --card: #ffffff;
+  --warn: #ef4444;
+  --sport-color: #e11d48;
 }
 
 * {
@@ -54,7 +54,7 @@ body.sport-mode-active {
   padding: 0; /* 여백 제거 */
   min-height: 0; /* flex 아이템이 수축할 수 있도록 허용 */
   overflow: hidden; /* 자식이 넘치면 잘라서 꽉차게 보이도록 */
-  background: #050505;
+  background: #f5f7fb;
 }
 
 /* 스트림 이미지를 컨테이너를 가득 채우되 비율 유지, 잘림 허용 */
@@ -110,10 +110,10 @@ body.sport-mode-active {
   align-items: flex-end;
   gap: 20px;
   padding: 16px 20px;
-  border: 1px solid rgba(255,255,255,.14);
+  border: 1px solid var(--border);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
-  box-shadow: inset 0 0 24px rgba(0,0,0,.4), 0 6px 16px rgba(0,0,0,.25);
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(17,24,39,.06);
 }
 
 .bottom-right-controls {
@@ -145,6 +145,7 @@ body.sport-mode-active {
   border-radius: 18px;
   padding: 14px;
   transition: border-color .4s;
+  box-shadow: 0 1px 3px rgba(17,24,39,.06), 0 1px 2px rgba(17,24,39,.03);
 }
 
 body.sport-mode-active .card {
@@ -172,10 +173,10 @@ body.sport-mode-active .card {
   font-weight: 700;
   border-radius: 12px;
   cursor: pointer;
-  background: #1c233a;
+  background: #ffffff;
   border: 1px solid var(--border);
   transition: all .15s;
-  color: var(--muted);
+  color: var(--ink);
   font-size: 16px;
   letter-spacing: 1px;
   text-align: center;
@@ -190,42 +191,44 @@ body.sport-mode-active .card {
 
 .gear-btn.active {
   background: var(--ice);
-  color: #000;
+  color: #fff;
 }
 
 /* 기어별 색상 설정 */
 .gear-btn[data-gear="P"].active {
-  background: #ff3030;
+  background: var(--warn);
   color: #fff;
-  box-shadow: 0 0 15px #ff3030;
+  box-shadow: none;
 }
 
 .gear-btn[data-gear="R"].active {
-  background: #ff3030;
+  background: var(--warn);
   color: #fff;
-  box-shadow: 0 0 15px #ff3030;
+  box-shadow: none;
 }
 
 .gear-btn[data-gear="N"].active {
-  background: #ffd700;
-  color: #000;
-  box-shadow: 0 0 15px #ffd700;
+  background: #e5e7eb;
+  color: #111827;
+  box-shadow: none;
 }
 
 .gear-btn[data-gear="D"].active {
   background: var(--ice);
-  color: #000;
-  box-shadow: 0 0 15px var(--ice);
+  color: #fff;
+  box-shadow: none;
 }
 
 .control-btn.on {
-  box-shadow: 0 0 12px var(--ice);
-  color: var(--ice);
+  box-shadow: none;
+  background: #eef2ff;
+  border-color: rgba(45,124,255,.25);
+  color: #1e3a8a;
 }
 
 .engine-btn {
-  background-color: #384055;
-  color: #fff;
+  background-color: #ffffff;
+  color: #111827;
   width: 100%;
 }
 
@@ -241,21 +244,18 @@ body.sport-mode-active .card {
   font-size: 14px;
   font-weight: 800;
   letter-spacing: 1px;
-  background: radial-gradient(circle at 50% 40%, #404a6a, #2a3046);
-  border: 1px solid rgba(255,255,255,.18);
-  box-shadow: 0 4px 12px rgba(0,0,0,.35), inset 0 2px 8px rgba(255,255,255,.08);
+  background: #ffffff;
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 14px rgba(17,24,39,.08);
   position: relative;
   z-index: 0;
 }
 
 .engine-round.on {
-  color: #dff6ff;
-  box-shadow:
-    0 0 18px rgba(132,216,255,.45),
-    0 0 36px rgba(132,216,255,.25),
-    inset 0 0 18px rgba(132,216,255,.35);
-  background: radial-gradient(circle at 50% 40%, #4c8fb4, #35526e);
-  border-color: rgba(132,216,255,.55);
+  color: #1e3a8a;
+  background: #eef2ff;
+  border-color: rgba(45,124,255,.35);
+  box-shadow: 0 8px 18px rgba(17,24,39,.12), inset 0 0 12px rgba(45,124,255,.12);
 }
 
 /* 크롬 링 효과 */
@@ -264,21 +264,10 @@ body.sport-mode-active .card {
   position: absolute;
   inset: -6px;
   border-radius: 50%;
-  background:
-    conic-gradient(
-      from 0deg,
-      #c8d2e1 0deg,
-      #f9fbff 45deg,
-      #aeb6c2 90deg,
-      #e6ecf5 140deg,
-      #9aa3b1 200deg,
-      #f2f6fb 260deg,
-      #b9c2cf 320deg,
-      #c8d2e1 360deg
-    );
+  background: rgba(17,24,39,.04);
   -webkit-mask: radial-gradient(circle at 50% 50%, transparent 0 72%, #000 73% 100%);
           mask: radial-gradient(circle at 50% 50%, transparent 0 72%, #000 73% 100%);
-  box-shadow: 0 6px 18px rgba(0,0,0,.35), inset 0 0 6px rgba(255,255,255,.3);
+  box-shadow: inset 0 0 6px rgba(17,24,39,.06);
   pointer-events: none;
   z-index: -1;
 }
@@ -291,15 +280,13 @@ body.sport-mode-active .card {
   right: 14px;
   bottom: 36px;
   border-radius: 50%;
-  background: linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,0));
-  opacity: .35;
+  background: linear-gradient(180deg, rgba(17,24,39,.06), rgba(17,24,39,0));
+  opacity: .25;
   pointer-events: none;
 }
 
 .engine-round.on::before {
-  box-shadow:
-    0 0 24px rgba(132,216,255,.45),
-    inset 0 0 10px rgba(132,216,255,.35);
+  box-shadow: inset 0 0 10px rgba(45,124,255,.18);
 }
 
 
@@ -316,10 +303,10 @@ body.sport-mode-active .card {
   height: 100%;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, .06) 0 58%, transparent 59% 100%),
-    conic-gradient(from -120deg, rgba(132, 216, 255, .16) 0 100deg, rgba(132, 216, 255, .08) 100deg 160deg, rgba(132, 216, 255, .03) 160deg 220deg, transparent 220deg 360deg);
+    radial-gradient(circle at 50% 50%, rgba(17, 24, 39, .04) 0 58%, transparent 59% 100%),
+    conic-gradient(from -120deg, rgba(17, 24, 39, .10) 0 100deg, rgba(17, 24, 39, .06) 100deg 160deg, rgba(17, 24, 39, .03) 160deg 220deg, transparent 220deg 360deg);
   border: 1px solid var(--border);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, .45) inset, 0 0 0 2px rgba(255, 255, 255, .04), 0 12px 22px rgba(0, 0, 0, .25);
+  box-shadow: inset 0 6px 14px rgba(17,24,39,.08);
   transition: filter .5s ease, opacity .5s ease;
 }
 
@@ -397,8 +384,8 @@ body.sport-mode-active .card {
   font-weight: 700;
   letter-spacing: 2.4px;
   font-size: 12px;
-  color: var(--ice);
-  text-shadow: 0 0 8px rgba(132, 216, 255, .6);
+  color: var(--muted);
+  text-shadow: none;
   z-index: 12;
 }
 
@@ -411,8 +398,8 @@ body.sport-mode-active .card {
   transform: translate(-50%, -50%);
   font-family: monospace;
   font-size: 24px;
-  color: #eaf3ff;
-  text-shadow: 0 0 10px rgba(132, 216, 255, .6);
+  color: var(--ink);
+  text-shadow: none;
   z-index: 12;
 }
 
@@ -440,7 +427,7 @@ body.sport-mode-active .card {
   border: 1px solid var(--border);
   border-radius: 12px;
   position: relative;
-  background: #141a32;
+  background: #f2f4f7;
   overflow: hidden;
 }
 
@@ -468,7 +455,60 @@ body.sport-mode-active .card {
   right: 0;
   top: calc(50% - 1px);
   height: 2px;
-  background: rgba(255, 255, 255, .25);
+  background: rgba(17, 24, 39, .12);
+}
+
+/* ==== 8. 상단바 (Tesla-like minimal) ==== */
+.topbar {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: rgba(255,255,255,.8);
+  backdrop-filter: saturate(1.8) blur(6px);
+  border-bottom: 1px solid var(--border);
+  z-index: 50;
+}
+
+.topbar-left {
+  font-weight: 800;
+  letter-spacing: 6px;
+  color: #111827;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-pill {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  color: #6b7280;
+  background: #f3f4f6;
+}
+
+.status-pill.on {
+  color: #065f46;
+  background: #ecfdf5;
+  border-color: rgba(5, 150, 105, .25);
+}
+
+.status-pill.off {
+  color: #6b7280;
+  background: #f3f4f6;
 }
 
 .net-card {

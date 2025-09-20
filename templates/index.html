@@ -19,6 +19,13 @@
 
   <div class="toast" id="toast"></div>
 
+  <header class="topbar" role="banner">
+    <div class="topbar-left">WAKAWAKA</div>
+    <div class="topbar-right">
+      <div class="status-pill off" id="statusPill">OFF</div>
+    </div>
+  </header>
+
   <div class="video-container">
     <img id="videoStream" class="video-stream" src="http://100.84.162.124:8889/cam" alt="Camera stream" />
     <iframe id="videoFallback" class="video-fallback-iframe" src="http://100.84.162.124:8889/cam" allow="autoplay; fullscreen; picture-in-picture" title="Camera fallback"></iframe>
@@ -26,9 +33,9 @@
 
   <div class="main-layout">
     <div class="bottom-left-controls">
-      <button class="engine-btn engine-round" id="btnEngine" aria-pressed="false">Engine</button>
-      <button class="control-btn" id="btnHead" aria-pressed="false">Headlight (H)</button>
-      <button class="control-btn" id="btnSport" aria-pressed="false">Sport Mode (M)</button>
+      <button class="engine-btn engine-round" id="btnEngine" aria-pressed="false">시동</button>
+      <button class="control-btn" id="btnHead" aria-pressed="false">전조등</button>
+      <button class="control-btn" id="btnSport" aria-pressed="false">스포츠</button>
     </div>
 
     <div class="instrument-cluster">
