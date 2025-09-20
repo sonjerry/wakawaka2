@@ -140,6 +140,9 @@ body.sport-mode-active {
   transform-origin: 50% 50%;
 }
 
+/* 바퀴 그림자 그룹은 전조등과 무관하게 항상 표시 */
+.wheel-shadows { opacity: .9; }
+
 /* 헤드라이트 그룹은 기본 비활성(투명) */
 .headlight-group { opacity: 0; transition: opacity .2s ease; }
 .lens-glow { opacity: 0; transition: opacity .2s ease; }

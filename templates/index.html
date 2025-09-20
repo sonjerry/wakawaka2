@@ -71,6 +71,10 @@
             <filter id="lightGlow" x="-40%" y="-40%" width="180%" height="180%">
               <feGaussianBlur in="SourceGraphic" stdDeviation="10"/>
             </filter>
+            <!-- 바퀴 그림자 블러 -->
+            <filter id="shadowBlur" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="3"/>
+            </filter>
             <!-- 루프 유리 톤 -->
             <linearGradient id="roofGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stop-color="#0b1220" stop-opacity="0.9"/>
@@ -111,13 +115,28 @@
             <path d="M36,52 Q80,30 124,52" fill="none" stroke="url(#lightStroke)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
           </g>
 
+          <!-- 차체 메탈 하이라이트(차가운 톤) -->
+          <g class="metal-highlight" opacity="0.75">
+            <path d="M36,52 Q80,30 124,52" fill="none" stroke="url(#lightStroke)" stroke-width="0.9" stroke-linecap="round" />
+            <path d="M36,52 L26,188" fill="none" stroke="#e5f0ff" stroke-opacity=".35" stroke-width="0.6" />
+            <path d="M124,52 L134,188" fill="none" stroke="#e5f0ff" stroke-opacity=".35" stroke-width="0.6" />
+          </g>
+
+          <!-- 바퀴 하부 그림자 -->
+          <g class="wheel-shadows">
+            <ellipse cx="35" cy="101" rx="9" ry="4" fill="rgba(0,0,0,.22)" filter="url(#shadowBlur)" />
+            <ellipse cx="125" cy="101" rx="9" ry="4" fill="rgba(0,0,0,.22)" filter="url(#shadowBlur)" />
+            <ellipse cx="35" cy="213" rx="9" ry="4" fill="rgba(0,0,0,.22)" filter="url(#shadowBlur)" />
+            <ellipse cx="125" cy="213" rx="9" ry="4" fill="rgba(0,0,0,.22)" filter="url(#shadowBlur)" />
+          </g>
+
           <!-- 앞바퀴 (조향 회전) : 위쪽, 세로 배치 -->
-          <rect id="carWheelFL" x="33" y="37" width="10" height="28" rx="3" class="wheel front" />
-          <rect id="carWheelFR" x="117" y="37" width="10" height="28" rx="3" class="wheel front" />
+          <rect id="carWheelFL" x="29" y="86" width="12" height="30" rx="3" class="wheel front" />
+          <rect id="carWheelFR" x="119" y="86" width="12" height="30" rx="3" class="wheel front" />
 
           <!-- 뒷바퀴 (고정) : 아래쪽, 세로 배치 -->
-          <rect x="33" y="195" width="10" height="28" rx="3" class="wheel rear" />
-          <rect x="117" y="195" width="10" height="28" rx="3" class="wheel rear" />
+          <rect x="29" y="198" width="12" height="30" rx="3" class="wheel rear" />
+          <rect x="119" y="198" width="12" height="30" rx="3" class="wheel rear" />
         </svg>
       </div>
     </div>
