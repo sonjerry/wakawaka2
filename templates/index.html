@@ -76,6 +76,18 @@
               <stop offset="0%" stop-color="#0b1220" stop-opacity="0.9"/>
               <stop offset="100%" stop-color="#1f2937" stop-opacity="0.8"/>
             </linearGradient>
+            <!-- 유리(전면/루프/적재함) 공통 그라디언트 -->
+            <linearGradient id="glassGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#1a2336" stop-opacity="0.85"/>
+              <stop offset="60%" stop-color="#0b1220" stop-opacity="0.95"/>
+              <stop offset="100%" stop-color="#04070f" stop-opacity="1"/>
+            </linearGradient>
+            <!-- 라이트바 스트로크(중앙 밝고 끝으로 갈수록 감쇠) -->
+            <linearGradient id="lightStroke" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#cfe8ff" stop-opacity="0.6"/>
+              <stop offset="50%" stop-color="#ffffff" stop-opacity="1"/>
+              <stop offset="100%" stop-color="#cfe8ff" stop-opacity="0.6"/>
+            </linearGradient>
           </defs>
 
           <!-- 차체 (상단을 뾰족 삼각형이 아닌 완만한 아치로 변경) -->
@@ -83,12 +95,12 @@
 
           <!-- 루프/유리: 사진과 유사한 3분할(전면유리/루프/적재함) -->
           <g class="glass-group">
-            <path class="glass front-glass" fill="url(#roofGrad)" stroke="rgba(0,0,0,.35)" stroke-width="0.6"
+            <path class="glass front-glass" fill="url(#glassGrad)" stroke="rgba(0,0,0,.35)" stroke-width="0.6"
                   d="M44,54 Q80,34 116,54 L116,78 L44,78 Z" />
             <rect class="glass mid-glass" x="48" y="82" width="64" height="58" rx="2"
-                  fill="#0f172a" stroke="rgba(0,0,0,.35)" stroke-width="0.6" />
+                  fill="url(#glassGrad)" stroke="rgba(0,0,0,.35)" stroke-width="0.6" />
             <rect class="glass rear-bed" x="44" y="146" width="72" height="74" rx="3"
-                  fill="#0f172a" stroke="rgba(0,0,0,.35)" stroke-width="0.6" />
+                  fill="url(#glassGrad)" stroke="rgba(0,0,0,.35)" stroke-width="0.6" />
           </g>
 
           <!-- 전조등: 전면 테두리 라이트바(외곽선) -->
@@ -96,7 +108,7 @@
             <path d="M36,52 Q80,30 124,52" fill="none" stroke="#e6f0ff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" filter="url(#lightGlow)" />
           </g>
           <g class="hl-outline">
-            <path d="M36,52 Q80,30 124,52" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M36,52 Q80,30 124,52" fill="none" stroke="url(#lightStroke)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
           </g>
 
           <!-- 앞바퀴 (조향 회전) : 위쪽, 세로 배치 -->
