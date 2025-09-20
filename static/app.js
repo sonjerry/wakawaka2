@@ -40,6 +40,14 @@
     head_on: false,
     axis: 0,            // -50..50
     throttleAngle: 120, // ESC 중립 기준
+    // 속도 표시용 상태 (부드러운 표시)
+    targetSpeedKmh: 0,
+    viewSpeedKmh: 0,
+    // 조향/속도 시각화 상태
+    targetSteerAngle: 0,
+    visualSteerAngle: 0,
+    lastSteerMsgAt: 0,
+    displaySpeedKmh: 0,
   };
   const keyState = { w: false, s: false, a: false, d: false };
 
@@ -94,7 +102,8 @@
       }
       if (typeof msg.steer_angle === "number") {
         DOM.dbgSteer && (DOM.dbgSteer.textContent = `${Math.round(msg.steer_angle)}°`);
-        updateCarSteer(msg.steer_angle);
+        state.targetSteerAngle = msg.steer_angle;
+        state.lastSteerMsgAt = performance.now();
       }
       if (typeof msg.throttle_angle === "number") {
         state.throttleAngle = msg.throttle_angle;
@@ -178,6 +187,35 @@
       updateAxisBar();
     }
 
+    // 속도 표시 스무딩 (즉각성과 부드러움 균형)
+    {
+      const TAU = 0.08; // 약 80ms 타임콘스턴트
+      const alpha = 1 - Math.exp(-dt / TAU);
+      const target = state.targetSpeedKmh;
+      state.viewSpeedKmh += (target - state.viewSpeedKmh) * alpha;
+      if (Math.abs(target - state.viewSpeedKmh) < 0.25) state.viewSpeedKmh = target;
+      state.displaySpeedKmh = state.viewSpeedKmh;
+      if (DOM.speedValue) DOM.speedValue.textContent = String(Math.round(state.viewSpeedKmh));
+    }
+
+    // 시각화용 조향 자동 정렬(속도에 비례해 빠르게 복귀)
+    {
+      const now = performance.now();
+      const msSinceSteer = now - (state.lastSteerMsgAt || 0);
+      let target = state.targetSteerAngle || 0;
+
+      if (msSinceSteer > 150 && state.displaySpeedKmh > 0.5) {
+        const returnRateDegPerSec = 10 + 1.2 * state.displaySpeedKmh; // 속도↑ → 복귀 빠름
+        const step = returnRateDegPerSec * dt;
+        if (Math.abs(target) <= step) target = 0;
+        else target += target > 0 ? -step : step;
+        state.targetSteerAngle = target;
+      }
+
+      state.visualSteerAngle = target;
+      updateCarSteer(state.visualSteerAngle);
+    }
+
     updateSteerLoop();
     requestAnimationFrame(mainLoop);
   }
@@ -198,8 +236,8 @@
 
   function updateCarSteer(angleDeg) {
     const clamped = Math.max(-35, Math.min(35, angleDeg));
-    // 상단이 전면인 탑뷰에서, 일반적인 수학적(+는 좌회전) 각도를 CSS 회전에 맞추기 위해 부호 반전
-    const visualDeg = -clamped;
+    // 사용자 피드백에 따라 시각화 부호 보정: +각 → 시계방향 회전
+    const visualDeg = clamped;
     if (DOM.carWheelFL) DOM.carWheelFL.style.transform = `rotate(${visualDeg}deg)`;
     if (DOM.carWheelFR) DOM.carWheelFR.style.transform = `rotate(${visualDeg}deg)`;
   }
@@ -270,28 +308,33 @@
 
   // ===== 쓰로틀 기반 Speed 숫자 표시 (Tesla 스타일) =====
   function updateSpeedFromThrottle() {
-    const MAX_DISPLAY = 180; // km/h 가정
+    // 요구사항: axis -5..5 근처에서 throttle ≈ 130
+    // D: throttle 130 → 4 km/h, 180 → 60 km/h 선형 매핑
+    // R: throttle 130 → 4 km/h, 0 → 60 km/h 선형 매핑
     const t = Number(state.throttleAngle);
-    let display = 0; // 0..MAX_DISPLAY
+    let kmh = 0;
 
     if (state.gear === 'D') {
-      // 120 → 0, 180 → MAX
-      if (t > 120) display = (t - 120) / 60 * MAX_DISPLAY;
-      else display = 0;
+      if (t >= 130) {
+        const tClamped = Math.min(180, t);
+        kmh = 4 + (tClamped - 130) * (56 / 50); // 130..180 (50도) → 4..60
+      } else {
+        kmh = 0;
+      }
     } else if (state.gear === 'R') {
-      // 120 → 0, 0 → MAX
-      if (t < 120) display = (120 - t) / 120 * MAX_DISPLAY;
-      else display = 0;
+      if (t <= 130) {
+        const tClamped = Math.max(0, t);
+        kmh = 4 + (130 - tClamped) * (56 / 130); // 130..0 (130도) → 4..60
+      } else {
+        kmh = 0;
+      }
     } else {
-      display = 0; // P/N 등은 0 표시
+      kmh = 0;
     }
 
-    if (display < 0) display = 0;
-    if (display > MAX_DISPLAY) display = MAX_DISPLAY;
-
-    if (DOM.speedValue) {
-      DOM.speedValue.textContent = String(Math.round(display));
-    }
+    if (kmh < 0) kmh = 0;
+    if (kmh > 60) kmh = 60;
+    state.targetSpeedKmh = kmh;
   }
 
   // 웰컴 스윕 제거됨
