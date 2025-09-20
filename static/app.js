@@ -27,8 +27,6 @@
     netLatency: document.getElementById("netLatency"),
     dbgSteer: document.getElementById("dbgSteer"),
     dbgThrottle: document.getElementById("dbgThrottle"),
-    needleRpm: document.getElementById("needleRpm"),
-    readoutRpm: document.getElementById("readoutRpm"),
     needleSpeed: document.getElementById("needleSpeed"),
     readoutSpeed: document.getElementById("readoutSpeed"),
   };
@@ -99,9 +97,7 @@
         DOM.dbgThrottle && (DOM.dbgThrottle.textContent = `${Math.round(state.throttleAngle)}°`);
         updateSpeedFromThrottle();
       }
-      if (typeof msg.rpm === "number") {
-        updateRpm(msg.rpm);
-      }
+      // RPM 제거됨
       // 서버의 실제 속도 수신은 무시하고 (요구사항에 따라)
       // speed 게이지는 쓰로틀 출력 기반으로만 갱신
     };
@@ -253,23 +249,7 @@
     DOM.netLatency.style.color = color;
   }
 
-  // ===== 게이지 업데이트 =====
-  let currentRpm = 0;
-
-  function updateRpm(rpm) {
-    currentRpm = rpm;
-    updateRpmDisplay();
-  }
-
-  function updateRpmDisplay() {
-    const MAX_RPM = 8000;
-    const clamped = currentRpm < 0 ? 0 : (currentRpm > MAX_RPM ? MAX_RPM : currentRpm);
-    const MIN_DEG = -135; // 0일 때 7시 방향
-    const MAX_DEG = 135;  // 최대치일 때 5시 방향
-    const angle = MIN_DEG + (clamped / MAX_RPM) * (MAX_DEG - MIN_DEG);
-    if (DOM.needleRpm) DOM.needleRpm.style.transform = `translate(-50%, -100%) rotate(${angle}deg)`;
-    if (DOM.readoutRpm) DOM.readoutRpm.textContent = Math.round(clamped);
-  }
+  // RPM 관련 로직 제거됨
 
   // ===== 쓰로틀 기반 Speed 게이지 =====
   function updateSpeedFromThrottle() {

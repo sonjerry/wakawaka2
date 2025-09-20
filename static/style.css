@@ -6,7 +6,6 @@
   --muted: #6b7280;
   --border: rgba(17, 24, 39, .08);
   --ice: #2d7cff;
-  --needle-rpm: #1f2937;
   --needle-speed: #2d7cff;
   --card: #ffffff;
   --warn: #ef4444;
@@ -38,7 +37,6 @@ body {
 
 body.sport-mode-active {
   --ice: var(--sport-color);
-  --needle-rpm: var(--sport-color);
 }
 
 
@@ -323,17 +321,7 @@ body.sport-mode-active .card {
   opacity: 1;
 }
 
-.gauge-redzone {
-  position: absolute;
-  inset: 6%;
-  border-radius: 50%;
-  pointer-events: none;
-  background: conic-gradient(from 90deg, var(--warn) 0deg 30deg, transparent 30deg 360deg);
-  opacity: .7;
-  transition: opacity .4s;
-  mask: radial-gradient(circle at 50% 50%, transparent 0 63%, #000 63.5% 100%);
-  z-index: 2;
-}
+/* RPM 전용 redzone 제거됨 */
 
 .needle {
   position: absolute;
@@ -348,19 +336,14 @@ body.sport-mode-active .card {
   z-index: 10;
 }
 
-#needleRpm {
-  background: linear-gradient(var(--needle-rpm), #b0e8ff);
-  box-shadow: 0 0 10px var(--needle-rpm);
-}
+/* #needleRpm 제거됨 */
 
 #needleSpeed {
   background: linear-gradient(var(--needle-speed), #ff8a83);
   box-shadow: 0 0 10px var(--needle-speed);
 }
 
-#needleRpm.redzone {
-  background: var(--warn);
-}
+/* #needleRpm.redzone 제거됨 */
 
 .hub {
   position: absolute;
