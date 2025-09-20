@@ -20,7 +20,8 @@
     gearIndicator: document.getElementById("gearIndicator"),
     gearButtons: [...document.querySelectorAll(".gear-btn")],
     btnHead: document.getElementById("btnHead"),
-    btnEngine: document.getElementById("btnEngine"),
+    btnSport: document.getElementById("btnSport"),
+    readyIndicator: document.getElementById("readyIndicator"),
     axisBarFill: document.getElementById("axisBarFill"),
     axisBarFillNeg: document.getElementById("axisBarFillNeg"),
     axisReadout: document.getElementById("axisReadout"),
@@ -35,7 +36,7 @@
 
   // ===== 상태 =====
   const state = {
-    engine_running: false,
+    engine_running: true, // 접속=READY 개념으로 사용한 플래그(내부용)
     gear: "P",
     head_on: false,
     axis: 0,            // -50..50
@@ -59,18 +60,53 @@
   let reconnectDelay = 1000;
   const wsUrl = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws";
 
+  // ===== READY 인디케이터 상태머신 =====
+  function setReadyState(stateName) {
+    const el = DOM.readyIndicator;
+    if (!el) return;
+    el.classList.remove('on', 'off', 'ready', 'connecting', 'reconnecting');
+    switch (stateName) {
+      case 'ready':
+        el.textContent = 'READY';
+        el.classList.add('on', 'ready');
+        setClusterPower(true);
+        break;
+      case 'connecting':
+        el.textContent = 'CONNECTING…';
+        el.classList.add('connecting', 'off');
+        setClusterPower(false);
+        break;
+      case 'reconnecting':
+        el.textContent = 'RECONNECTING…';
+        el.classList.add('reconnecting', 'off');
+        setClusterPower(false);
+        break;
+      default:
+        el.textContent = 'OFF';
+        el.classList.add('off');
+        setClusterPower(false);
+    }
+  }
+
   function connect() {
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       isConnected = true;
       reconnectDelay = 1000;
+      // 접속 완료 → READY 표시
+      setReadyState('ready');
     };
 
     ws.onclose = () => {
       isConnected = false;
+      setReadyState('reconnecting');
       setTimeout(connect, reconnectDelay);
       reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+    };
+
+    ws.onerror = () => {
+      setReadyState('reconnecting');
     };
 
     ws.onmessage = (ev) => {
@@ -81,15 +117,7 @@
         updateNetworkLatency(performance.now() - msg.pong);
         return;
       }
-      if (typeof msg.engine_running === "boolean") {
-        state.engine_running = msg.engine_running;
-        setClusterPower(state.engine_running);
-        updateGearUI();
-        // 엔진 버튼 시각효과 토글
-        if (DOM.btnEngine) {
-          DOM.btnEngine.classList.toggle('on', state.engine_running);
-        }
-      }
+      // engine_running 개념 무시 (READY는 접속 기준)
       if (typeof msg.head_on === "boolean") {
         state.head_on = msg.head_on;
         DOM.btnHead.classList.toggle("on", state.head_on);
@@ -134,8 +162,11 @@
     send({ head_toggle: true });
   });
 
-  DOM.btnEngine.addEventListener("click", () => {
-    send({ engine_toggle: true });
+  // 스포츠 모드 토글: 악센트 색상/약간의 강조
+  DOM.btnSport && DOM.btnSport.addEventListener("click", () => {
+    const on = !DOM.body.classList.contains('sport-mode-active');
+    DOM.body.classList.toggle('sport-mode-active', on);
+    DOM.btnSport.classList.toggle('on', on);
   });
 
   // ===== 키보드 이벤트 =====
@@ -146,7 +177,6 @@
 
     // 키보드로 기어 변경 기능 제거 (충돌 방지)
     if (k === "h") DOM.btnHead.click();
-    if (k === "e") DOM.btnEngine.click();
   });
 
   window.addEventListener("keyup", (e) => {
@@ -244,12 +274,6 @@
   function setClusterPower(on) {
     DOM.body.classList.toggle("cluster-on", on);
     DOM.body.classList.toggle("cluster-off", !on);
-    const pill = document.getElementById("statusPill");
-    if (pill) {
-      pill.textContent = on ? "READY" : "OFF";
-      pill.classList.toggle("on", on);
-      pill.classList.toggle("off", !on);
-    }
   }
 
   function updateCarSteer(angleDeg) {
@@ -266,8 +290,8 @@
   }
 
   function updateGearUI() {
-    DOM.gearIndicator.textContent = state.engine_running ? state.gear : "";
-    DOM.gearButtons.forEach(el => el.classList.toggle("active", state.engine_running && el.dataset.gear === state.gear));
+    DOM.gearIndicator.textContent = state.gear;
+    DOM.gearButtons.forEach(el => el.classList.toggle("active", el.dataset.gear === state.gear));
   }
 
   function updateAxisBar() {
@@ -361,7 +385,7 @@
   // ===== 시작 =====
   document.addEventListener("DOMContentLoaded", () => {
     initVideoFallback();
-    setClusterPower(false);
+    setReadyState('connecting');
     updateGearUI();
     updateAxisBar();
     updateHeadlightState();

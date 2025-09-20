@@ -458,17 +458,53 @@ body.sport-mode-active .card {
   border: 1px solid var(--border);
   color: #6b7280;
   background: #f3f4f6;
+  letter-spacing: 1px;
+  transition: background-color .25s, color .25s, border-color .25s, box-shadow .25s;
+  position: relative;
 }
 
 .status-pill.on {
   color: #065f46;
   background: #ecfdf5;
   border-color: rgba(5, 150, 105, .25);
+  box-shadow: 0 0 0 3px rgba(5,150,105,.06);
 }
 
 .status-pill.off {
   color: #6b7280;
   background: #f3f4f6;
+}
+
+/* READY/CONNECTING/RECONNECTING 고급 스타일 */
+.status-pill.ready {
+  color: #065f46;
+  background: linear-gradient(180deg, #ecfdf5, #d1fae5);
+  border-color: rgba(5, 150, 105, .3);
+}
+
+.status-pill.connecting,
+.status-pill.reconnecting {
+  color: #8a6a00;
+  background: linear-gradient(180deg, #fffbea, #fde68a);
+  border-color: rgba(234, 179, 8, .35);
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, .12);
+}
+
+/* 스피너: CONNECTING/RECONNECTING일 때 좌측에 표시 */
+.status-pill.connecting::before,
+.status-pill.reconnecting::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(0,0,0,.15);
+  border-top-color: rgba(0,0,0,.55);
+  border-radius: 50%;
+  margin-right: 8px;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .net-card {
