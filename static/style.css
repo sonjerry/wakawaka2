@@ -146,8 +146,9 @@ body.sport-mode-active {
 
 /* 전조등 ON 시 빔과 렌즈 글로우 활성화 */
 .car-visual.headlight-on .lightbar, 
-.car-visual.headlight-on .lightbar-glow { opacity: 1; }
-.lightbar, .lightbar-glow { opacity: 0; transition: opacity .18s ease; }
+.car-visual.headlight-on .lightbar-glow, 
+.car-visual.headlight-on .lightbar-plate { opacity: 1; }
+.lightbar, .lightbar-glow, .lightbar-plate { opacity: 0; transition: opacity .18s ease; }
 
 .bottom-right-controls {
   align-items: flex-end;

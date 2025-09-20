@@ -84,13 +84,17 @@
           <!-- 루프/유리 -->
           <polygon class="car-roof" fill="url(#roofGrad)" points="80,28 46,52 114,52" />
 
+          <!-- 라이트바 대비 플레이트 (밝은 배경에서도 선명) -->
+          <g class="lightbar-plate">
+            <rect x="42" y="27" width="76" height="8" rx="4" fill="rgba(0,0,0,0.25)" />
+          </g>
           <!-- 라이트바 글로우 (먼저 렌더링) -->
           <g class="lightbar-glow">
-            <rect x="38" y="26" width="84" height="10" rx="5" fill="#ffffff" opacity="0.85" filter="url(#lightGlow)" />
+            <rect x="38" y="26" width="84" height="10" rx="5" fill="#e6f0ff" opacity="0.95" filter="url(#lightGlow)" />
           </g>
-          <!-- 라이트바 본체 -->
+          <!-- 라이트바 본체 + 스트로크 -->
           <g class="lightbar">
-            <rect x="44" y="28" width="72" height="6" rx="3" fill="#ffffff" />
+            <rect x="44" y="28" width="72" height="6" rx="3" fill="#ffffff" stroke="rgba(0,0,0,.35)" stroke-width="0.6" />
           </g>
 
           <!-- 앞바퀴 (조향 회전) : 위쪽, 세로 배치 -->

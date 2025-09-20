@@ -198,14 +198,32 @@
       if (DOM.speedValue) DOM.speedValue.textContent = String(Math.round(state.viewSpeedKmh));
     }
 
-    // 시각화용 조향 자동 정렬(속도에 비례해 빠르게 복귀)
+    // 시각화용 조향 자동 정렬(쓰로틀에 비례해 빠르게 복귀)
     {
       const now = performance.now();
       const msSinceSteer = now - (state.lastSteerMsgAt || 0);
       let target = state.targetSteerAngle || 0;
 
-      if (msSinceSteer > 150 && state.displaySpeedKmh > 0.5) {
-        const returnRateDegPerSec = 10 + 1.2 * state.displaySpeedKmh; // 속도↑ → 복귀 빠름
+      // 쓰로틀 기반 반환 속도 계산
+      const t = Number(state.throttleAngle);
+      let factor = 0; // 0..1
+      const F_START = 130, F_END = 180; // 전진 구간
+      const R_START = 120, R_END = 65;  // 후진 구간
+      const R_DEAD = 2;                 // 후진 데드존(유휴 시 0 표시)
+      if (state.gear === 'D') {
+        factor = Math.max(0, Math.min(1, (t - F_START) / (F_END - F_START)));
+      } else if (state.gear === 'R') {
+        const effectiveStart = R_START - R_DEAD; // 118
+        if (t < effectiveStart) {
+          const clamped = Math.max(R_END, Math.min(effectiveStart, t));
+          factor = (effectiveStart - clamped) / (effectiveStart - R_END);
+        } else {
+          factor = 0;
+        }
+      }
+
+      if (msSinceSteer > 150 && factor > 0) {
+        const returnRateDegPerSec = 10 + 70 * factor; // 쓰로틀↑ → 복귀 빠름
         const step = returnRateDegPerSec * dt;
         if (Math.abs(target) <= step) target = 0;
         else target += target > 0 ? -step : step;
@@ -310,7 +328,7 @@
   function updateSpeedFromThrottle() {
     // 요구사항: axis -5..5 근처에서 throttle ≈ 130
     // D: throttle 130 → 4 km/h, 180 → 60 km/h 선형 매핑
-    // R: throttle 130 → 4 km/h, 0 → 60 km/h 선형 매핑
+    // R: throttle 120 → 4 km/h, 65 → 60 km/h 선형 매핑, 유휴 데드존(118~130)은 0 km/h
     const t = Number(state.throttleAngle);
     let kmh = 0;
 
@@ -322,9 +340,10 @@
         kmh = 0;
       }
     } else if (state.gear === 'R') {
-      if (t <= 130) {
-        const tClamped = Math.max(0, t);
-        kmh = 4 + (130 - tClamped) * (56 / 130); // 130..0 (130도) → 4..60
+      const DEAD = 2; // 120±2 내 유휴 처리
+      if (t <= 120 - DEAD) {
+        const tClamped = Math.max(65, t);
+        kmh = 4 + ((120 - DEAD) - tClamped) * (56 / ((120 - DEAD) - 65));
       } else {
         kmh = 0;
       }
