@@ -28,6 +28,9 @@
     dbgSteer: document.getElementById("dbgSteer"),
     dbgThrottle: document.getElementById("dbgThrottle"),
     speedValue: document.getElementById("speedValue"),
+    carWheelFL: document.getElementById("carWheelFL"),
+    carWheelFR: document.getElementById("carWheelFR"),
+    carVisualWrapper: document.querySelector('.car-visual'),
   };
 
   // ===== 상태 =====
@@ -82,6 +85,7 @@
       if (typeof msg.head_on === "boolean") {
         state.head_on = msg.head_on;
         DOM.btnHead.classList.toggle("on", state.head_on);
+        updateHeadlightState();
       }
       if (typeof msg.gear === "string") {
         state.gear = msg.gear;
@@ -90,6 +94,7 @@
       }
       if (typeof msg.steer_angle === "number") {
         DOM.dbgSteer && (DOM.dbgSteer.textContent = `${Math.round(msg.steer_angle)}°`);
+        updateCarSteer(msg.steer_angle);
       }
       if (typeof msg.throttle_angle === "number") {
         state.throttleAngle = msg.throttle_angle;
@@ -191,6 +196,17 @@
     }
   }
 
+  function updateCarSteer(angleDeg) {
+    const clamped = Math.max(-35, Math.min(35, angleDeg));
+    if (DOM.carWheelFL) DOM.carWheelFL.style.transform = `rotate(${clamped}deg)`;
+    if (DOM.carWheelFR) DOM.carWheelFR.style.transform = `rotate(${clamped}deg)`;
+  }
+
+  function updateHeadlightState() {
+    if (!DOM.carVisualWrapper) return;
+    DOM.carVisualWrapper.classList.toggle('headlight-on', !!state.head_on);
+  }
+
   function updateGearUI() {
     DOM.gearIndicator.textContent = state.engine_running ? state.gear : "";
     DOM.gearButtons.forEach(el => el.classList.toggle("active", state.engine_running && el.dataset.gear === state.gear));
@@ -284,6 +300,7 @@
     setClusterPower(false);
     updateGearUI();
     updateAxisBar();
+    updateHeadlightState();
     connect();
     requestAnimationFrame(mainLoop);
   });

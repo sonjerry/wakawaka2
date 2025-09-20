@@ -57,6 +57,22 @@
           <div class="speed-unit">km/h</div>
         </div>
       </div>
+      
+      <div class="car-visual" aria-label="차량 상태">
+        <svg class="car-svg" viewBox="0 0 220 140" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <!-- 차체 -->
+          <rect x="50" y="30" width="120" height="80" rx="12" class="car-body" />
+          <!-- 앞바퀴 (조향 회전) -->
+          <rect id="carWheelFL" x="55" y="28" width="24" height="12" rx="3" class="wheel front" />
+          <rect id="carWheelFR" x="141" y="28" width="24" height="12" rx="3" class="wheel front" />
+          <!-- 뒷바퀴 (고정) -->
+          <rect x="55" y="100" width="24" height="12" rx="3" class="wheel rear" />
+          <rect x="141" y="100" width="24" height="12" rx="3" class="wheel rear" />
+          <!-- 헤드라이트 빔 -->
+          <polygon id="beamL" class="headlight-beam" points="62,30 88,8 104,30" />
+          <polygon id="beamR" class="headlight-beam" points="116,30 132,8 158,30" />
+        </svg>
+      </div>
     </div>
 
     <div class="bottom-right-controls">
