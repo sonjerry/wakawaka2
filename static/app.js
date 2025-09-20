@@ -198,8 +198,10 @@
 
   function updateCarSteer(angleDeg) {
     const clamped = Math.max(-35, Math.min(35, angleDeg));
-    if (DOM.carWheelFL) DOM.carWheelFL.style.transform = `rotate(${clamped}deg)`;
-    if (DOM.carWheelFR) DOM.carWheelFR.style.transform = `rotate(${clamped}deg)`;
+    // 상단이 전면인 탑뷰에서, 일반적인 수학적(+는 좌회전) 각도를 CSS 회전에 맞추기 위해 부호 반전
+    const visualDeg = -clamped;
+    if (DOM.carWheelFL) DOM.carWheelFL.style.transform = `rotate(${visualDeg}deg)`;
+    if (DOM.carWheelFR) DOM.carWheelFR.style.transform = `rotate(${visualDeg}deg)`;
   }
 
   function updateHeadlightState() {

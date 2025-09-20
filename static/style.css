@@ -114,8 +114,8 @@ body.sport-mode-active {
   box-shadow: 0 4px 12px rgba(17,24,39,.06);
 }
 .car-visual {
-  width: 260px;
-  height: 180px;
+  width: 200px;
+  height: 220px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -141,15 +141,13 @@ body.sport-mode-active {
   transform-origin: 50% 50%;
 }
 
-.headlight-beam {
-  fill: rgba(255, 255, 180, 0.0);
-  transition: fill .2s ease;
-}
+/* 헤드라이트 그룹은 기본 비활성(투명) */
+.headlight-group { opacity: 0; transition: opacity .2s ease; }
+.lens-glow { opacity: 0; transition: opacity .2s ease; }
 
-body.cluster-on .headlight-on #beamL,
-body.cluster-on .headlight-on #beamR {
-  fill: rgba(255, 255, 180, 0.65);
-}
+/* 전조등 ON 시 빔과 렌즈 글로우 활성화 */
+.car-visual.headlight-on .headlight-group { opacity: 1; }
+.car-visual.headlight-on .lens-glow { opacity: .9; }
 
 .bottom-right-controls {
   align-items: flex-end;
