@@ -61,40 +61,45 @@
       <div class="car-visual" aria-label="차량 상태">
         <svg class="car-svg" viewBox="0 0 160 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <defs>
-            <linearGradient id="beamGrad" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stop-color="rgba(255,255,200,0.0)"/>
-              <stop offset="60%" stop-color="rgba(255,255,200,0.25)"/>
-              <stop offset="100%" stop-color="rgba(255,255,200,0.7)"/>
+            <!-- 차체용 메탈 그라디언트 -->
+            <linearGradient id="steelGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#cfd6e3"/>
+              <stop offset="50%" stop-color="#e5e7eb"/>
+              <stop offset="100%" stop-color="#c3cad6"/>
             </linearGradient>
-            <filter id="beamBlur" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="6"/>
+            <!-- 라이트바 글로우 -->
+            <filter id="lightGlow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="10"/>
             </filter>
-            <radialGradient id="glowGrad" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="rgba(255,255,230,0.9)"/>
-              <stop offset="100%" stop-color="rgba(255,255,230,0)"/>
-            </radialGradient>
+            <!-- 루프 유리 톤 -->
+            <linearGradient id="roofGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#0b1220" stop-opacity="0.9"/>
+              <stop offset="100%" stop-color="#1f2937" stop-opacity="0.8"/>
+            </linearGradient>
           </defs>
 
-          <!-- 차체 (세로 배치, 위쪽이 전면) -->
-          <rect x="30" y="40" width="100" height="180" rx="16" class="car-body" />
+          <!-- 차체 (사이버트럭 쐐기형) -->
+          <polygon class="car-body" fill="url(#steelGrad)" points="80,24 36,48 30,188 40,236 120,236 130,188 124,48" />
 
-          <!-- 앞바퀴 (조향 회전) : 위쪽 -->
-          <rect id="carWheelFL" x="24" y="46" width="28" height="10" rx="3" class="wheel front" />
-          <rect id="carWheelFR" x="108" y="46" width="28" height="10" rx="3" class="wheel front" />
+          <!-- 루프/유리 -->
+          <polygon class="car-roof" fill="url(#roofGrad)" points="80,28 46,52 114,52" />
 
-          <!-- 뒷바퀴 (고정) : 아래쪽 -->
-          <rect x="24" y="204" width="28" height="10" rx="3" class="wheel rear" />
-          <rect x="108" y="204" width="28" height="10" rx="3" class="wheel rear" />
-
-          <!-- 헤드라이트 렌즈 글로우 -->
-          <circle cx="46" cy="40" r="8" fill="url(#glowGrad)" class="lens-glow" />
-          <circle cx="114" cy="40" r="8" fill="url(#glowGrad)" class="lens-glow" />
-
-          <!-- 헤드라이트 빔 (상단 방향, 고품질 그라디언트+블러) -->
-          <g class="headlight-group">
-            <polygon class="beam" points="32,40 14,4 68,4 58,40" fill="url(#beamGrad)" filter="url(#beamBlur)" />
-            <polygon class="beam" points="128,40 102,4 146,4 148,40" fill="url(#beamGrad)" filter="url(#beamBlur)" />
+          <!-- 라이트바 글로우 (먼저 렌더링) -->
+          <g class="lightbar-glow">
+            <rect x="38" y="26" width="84" height="10" rx="5" fill="#ffffff" opacity="0.85" filter="url(#lightGlow)" />
           </g>
+          <!-- 라이트바 본체 -->
+          <g class="lightbar">
+            <rect x="44" y="28" width="72" height="6" rx="3" fill="#ffffff" />
+          </g>
+
+          <!-- 앞바퀴 (조향 회전) : 위쪽, 세로 배치 -->
+          <rect id="carWheelFL" x="33" y="37" width="10" height="28" rx="3" class="wheel front" />
+          <rect id="carWheelFR" x="117" y="37" width="10" height="28" rx="3" class="wheel front" />
+
+          <!-- 뒷바퀴 (고정) : 아래쪽, 세로 배치 -->
+          <rect x="33" y="195" width="10" height="28" rx="3" class="wheel rear" />
+          <rect x="117" y="195" width="10" height="28" rx="3" class="wheel rear" />
         </svg>
       </div>
     </div>

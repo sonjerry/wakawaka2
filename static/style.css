@@ -127,9 +127,8 @@ body.sport-mode-active {
 }
 
 .car-body {
-  fill: #e5e7eb; /* tailwind zinc-200 */
-  stroke: var(--border);
-  stroke-width: 1;
+  stroke: rgba(17,24,39,.15);
+  stroke-width: 1.2;
 }
 
 .wheel {
@@ -146,8 +145,9 @@ body.sport-mode-active {
 .lens-glow { opacity: 0; transition: opacity .2s ease; }
 
 /* 전조등 ON 시 빔과 렌즈 글로우 활성화 */
-.car-visual.headlight-on .headlight-group { opacity: 1; }
-.car-visual.headlight-on .lens-glow { opacity: .9; }
+.car-visual.headlight-on .lightbar, 
+.car-visual.headlight-on .lightbar-glow { opacity: 1; }
+.lightbar, .lightbar-glow { opacity: 0; transition: opacity .18s ease; }
 
 .bottom-right-controls {
   align-items: flex-end;
