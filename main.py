@@ -54,34 +54,44 @@ def steer_auto_center_loop():
         dt = max(0.0, min(0.1, now - prev))
         prev = now
         try:
-            if state['engine_running']:
-                t = state['throttle_angle']
-                g = state['gear']
-                factor = 0.0  # 0..1
-                # 전진: 130..180, 후진: 120..65
-                if g == 'D':
-                    factor = max(0.0, min(1.0, (t - 130) / (180 - 130)))
-                elif g == 'R':
-                    factor = max(0.0, min(1.0, (120 - t) / (120 - 65)))
+            # 엔진 플래그와 무관하게, 실제 주행 상태(쓰로틀/기어)에 따라 복귀
+            t = float(state['throttle_angle'])
+            g = state['gear']
+            factor = 0.0  # 0..1
+            # 전진: 130..180, 후진: 120..65 (후진 데드존 2도)
+            if g == 'D':
+                factor = max(0.0, min(1.0, (t - 130.0) / (180.0 - 130.0)))
+                # 크리핑(≈130°)에서도 완만히 복귀
+                if t >= 130.0:
+                    factor = max(factor, 0.25)
+            elif g == 'R':
+                R_DEAD = 2.0
+                effective_start = 120.0 - R_DEAD  # 118.0
+                if t < effective_start:
+                    clamped = max(65.0, min(effective_start, t))
+                    factor = (effective_start - clamped) / (effective_start - 65.0)
+                    factor = max(factor, 0.25)  # 후진 크리핑에서도 완만히 복귀
+                else:
+                    factor = 0.0
 
-                # 최근 조향 입력 150ms 이후, 주행 계수>0일 때만 복귀
-                if factor > 0.0 and (now - last_steer_input_at) > 0.150:
-                    current = float(state['steer_angle'])
-                    if current != 0.0:
-                        return_rate_deg_per_s = 10.0 + 70.0 * factor
-                        step = return_rate_deg_per_s * dt
-                        if abs(current) <= step:
-                            current = 0.0
-                        else:
-                            current += (-step if current > 0.0 else step)
-                        new_angle = int(max(STEER_MIN, min(STEER_MAX, round(current))))
-                        if new_angle != state['steer_angle']:
-                            state['steer_angle'] = new_angle
-                            set_steer_angle(state['steer_angle'])
-                            # 전송 과도 방지: 최소 60ms 간격
-                            if (now - last_broadcast_at) > 0.060:
-                                broadcast_update({'steer_angle': state['steer_angle']})
-                                last_broadcast_at = now
+            # 최근 조향 입력 150ms 이후, 주행 계수>0일 때만 복귀
+            if factor > 0.0 and (now - last_steer_input_at) > 0.150:
+                current = float(state['steer_angle'])
+                if current != 0.0:
+                    return_rate_deg_per_s = 10.0 + 70.0 * factor
+                    step = return_rate_deg_per_s * dt
+                    if abs(current) <= step:
+                        current = 0.0
+                    else:
+                        current += (-step if current > 0.0 else step)
+                    new_angle = int(max(STEER_MIN, min(STEER_MAX, round(current))))
+                    if new_angle != state['steer_angle']:
+                        state['steer_angle'] = new_angle
+                        set_steer_angle(state['steer_angle'])
+                        # 전송 과도 방지: 최소 60ms 간격
+                        if (now - last_broadcast_at) > 0.060:
+                            broadcast_update({'steer_angle': state['steer_angle']})
+                            last_broadcast_at = now
         except Exception:
             pass
         time.sleep(0.02)
