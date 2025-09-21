@@ -4,7 +4,7 @@ import threading
 import json
 import time
 from simulate import map_axis_to_angle
-from hardware import init_hardware, set_steer_angle, set_throttle, arm_esc_sequence
+from hardware import init_hardware, set_steer_angle, set_throttle, arm_esc_sequence, set_led
 
 app = Flask(__name__)
 sock = Sock(app)
@@ -122,6 +122,7 @@ def process_message_dict(msg: dict):
 
     if 'head_toggle' in msg and msg['head_toggle']:
         state['head_on'] = not state['head_on']
+        set_led(state['head_on'])  # 실제 LED 하드웨어 제어
         broadcast_update({'head_on': state['head_on']})
 
     if 'gear' in msg and state['axis'] < 0:
