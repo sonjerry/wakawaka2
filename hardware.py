@@ -1,8 +1,5 @@
 from adafruit_servokit import ServoKit
 import time
-import board
-import busio
-from adafruit_pca9685 import PCA9685
 
 
 # 채널 매핑
@@ -13,11 +10,6 @@ LED_CHANNEL = 2    # 전조등 LED
 # ServoKit 초기화
 kit = ServoKit(channels=16)
 kit.frequency = 50  # 50Hz로 명시적 설정
-
-# LED 제어를 위한 직접 PCA9685 접근
-i2c = busio.I2C(board.SCL, board.SDA)
-pca = PCA9685(i2c)
-pca.frequency = 50
 
 
 def init_hardware() -> None:
@@ -59,12 +51,10 @@ def set_led(on: bool) -> None:
     """
     if on:
         # LED 켜기 - PWM duty cycle 100% (4095/4095)
-        pca.channels[LED_CHANNEL].duty_cycle = 4095
+        kit._pca.channels[LED_CHANNEL].duty_cycle = 4095
     else:
         # LED 완전히 끄기 - PWM duty cycle 0% 
-        pca.channels[LED_CHANNEL].duty_cycle = 0
-        # 확실히 끄기 위해 채널 비활성화
-        pca.channels[LED_CHANNEL].fraction = 0.0
+        kit._pca.channels[LED_CHANNEL].duty_cycle = 0
 
 def arm_esc_sequence() -> None:
     set_throttle(120)
