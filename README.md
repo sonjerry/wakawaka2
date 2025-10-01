@@ -21,3 +21,13 @@
  - 실시간 스트리밍 영상을 위한 별개의 webrtc 서버 구동이 필수임.
 
 ---
+
+## 진행사항 기록
+
+ -https://leegaeulblog.onrender.com/blog?progress=p1
+
+
+
+
+
+ ---
