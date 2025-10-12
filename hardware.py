@@ -12,7 +12,7 @@ STEER_MIN = -66
 STEER_MAX = 66
 
 # 서보 PWM 펄스 범위
-SERVO_PULSE_MIN = 1599 
+SERVO_PULSE_MIN = 1600 
 SERVO_PULSE_MAX = 2200
 
 # 채널 매핑
@@ -38,7 +38,7 @@ def set_steer_angle(steer_deg_minus90_to_90: int) -> None:
     - 왼쪽 한계 60°, 오른쪽 한계 180°
     - 음수/양수 구간에 대해 비대칭 선형 매핑
     """
-    CENTER = 129
+    CENTER = 130
     LEFT_LIMIT = 60
     RIGHT_LIMIT = 180
 

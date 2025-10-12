@@ -36,9 +36,6 @@
     accelReadout: document.getElementById("accelReadout"),
     brakeReadout: document.getElementById("brakeReadout"),
     netLatency: document.getElementById("netLatency"),
-    dbgSteer: document.getElementById("dbgSteer"),
-    dbgThrottle: document.getElementById("dbgThrottle"),
-    dbgWheel: document.getElementById("dbgWheel"),
     speedValue: document.getElementById("speedValue"),
     carWheelFL: document.getElementById("carWheelFL"),
     carWheelFR: document.getElementById("carWheelFR"),
@@ -153,13 +150,11 @@
       }
       if (typeof msg.steer_angle === "number") {
         state.steer_angle = msg.steer_angle;  // 서버와 동기화
-        DOM.dbgSteer && (DOM.dbgSteer.textContent = `${Math.round(msg.steer_angle)}°`);
         state.targetSteerAngle = msg.steer_angle;
         state.lastSteerMsgAt = performance.now();
       }
       if (typeof msg.throttle_angle === "number") {
         state.throttleAngle = msg.throttle_angle;
-        DOM.dbgThrottle && (DOM.dbgThrottle.textContent = `${Math.round(state.throttleAngle)}°`);
       }
       if (typeof msg.current_speed_kmh === "number") {
         state.current_speed_kmh = msg.current_speed_kmh;
@@ -395,11 +390,6 @@
       console.log(`데드존 후 - 가속: ${gasRaw.toFixed(3)}, 브레이크: ${brakeRaw.toFixed(3)}`);
       console.log(`최종 - accel_axis: ${wheelAccelTarget.toFixed(1)}, brake_axis: ${wheelBrakeTarget.toFixed(1)}`);
       wheelState.lastLogTime = performance.now();
-    }
-    
-    // UI 디버깅 정보 업데이트
-    if (DOM.dbgWheel) {
-      DOM.dbgWheel.textContent = `G:${(gasRaw * 100).toFixed(0)}% B:${(brakeRaw * 100).toFixed(0)}%`;
     }
     
     // 버튼 입력 처리 (기어 변경)

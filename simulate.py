@@ -11,7 +11,7 @@ class RCCarPhysics:
     RC카 물리 시뮬레이션
     - 액셀/브레이크 분리 입력 (각각 0~50)
     - 실시간 속도 상태 유지
-    - 전기차 스타일 가속/감속/크리핑
+    - 전기차 스타일: 액셀 = 모터 출력, 브레이크 = 회생 제동
     """
     
     # 속도 제한
@@ -27,26 +27,18 @@ class RCCarPhysics:
     MOTOR_REVERSE_MAX = 65   # 후진 최대
     MOTOR_CREEP = 130  # 크리핑
     
-    # 물리 상수 (튜닝 필요)
-    # 가속: 0->20km/h 풀액셀(50)로 8초
-    # 평균 가속도 = 20/8 = 2.5 km/h/s
-    # 저속일수록 가속 느림 -> 가속도가 속도에 비례하도록
-    ACCEL_BASE = 2.0         # 기본 가속도 (km/h/s per accel_axis unit)
-    ACCEL_SPEED_FACTOR = 0.4  # 속도에 비례한 추가 가속도
-    
+    # 물리 상수
     # 브레이크: 20km/h에서 풀브레이크(50)로 2초 정지
-    # 필요 감속도 = 20/2 = 10 km/h/s
-    BRAKE_BASE = 0.2         # 기본 브레이크 감속도 (km/h/s per brake_axis unit)
+    # 필요 감속도 = 20/2 = 10 km/h/s → 50 axis당 10 → axis당 0.2
+    BRAKE_DECEL_PER_AXIS = 0.2  # km/h/s per brake_axis unit
     
     # 관성 감속 (속도에 비례)
-    # 실제 전기차: 100km/h에서 발 떼면 약 10-15초 정도 60km/h까지 감속
-    # 비율로 환산: 20km/h에서 약 5-7초 정도면 10km/h까지 감속
-    DRAG_COEFFICIENT = 0.15   # 속도에 비례한 저항 (km/h/s per km/h)
+    # 20km/h에서 약 6-7초 만에 정지
+    DRAG_COEFFICIENT = 0.5  # 속도에 비례한 저항
     
     def __init__(self):
         self.current_speed_kmh = 0.0  # 현재 속도 (항상 양수)
         self.last_update_time = time.monotonic()
-        self.last_debug_time = 0.0  # 디버깅 출력 타이머
     
     def reset(self):
         """시뮬레이션 초기화"""
@@ -56,6 +48,11 @@ class RCCarPhysics:
     def update(self, accel_axis: float, brake_axis: float, gear: str) -> tuple[float, int]:
         """
         물리 시뮬레이션 업데이트
+        
+        실제 전기차 방식:
+        - 액셀 페달 → 모터 출력 (각도) 직접 제어
+        - 모터 출력 → 가속력 발생
+        - 브레이크 → 회생 제동 (감속)
         
         Args:
             accel_axis: 액셀 페달 깊이 (0~50)
@@ -84,64 +81,74 @@ class RCCarPhysics:
         
         # D/R 기어에서만 동작
         if gear not in ['D', 'R']:
-            return (self.current_speed_kmh, self.speed_to_motor_angle(self.current_speed_kmh, gear))
+            return (self.current_speed_kmh, self.MOTOR_NEUTRAL)
         
         # 최고속도 설정
         max_speed = self.MAX_SPEED_FORWARD if gear == 'D' else self.MAX_SPEED_REVERSE
         
         # === 크리핑 처리 ===
-        # 액셀/브레이크를 거의 밟지 않은 상태 (데드존 고려)
         CREEP_THRESHOLD = 1.0  # axis 값이 1 미만이면 크리핑으로 간주
+        CREEP_SPEED_THRESHOLD = 5.0  # 5km/h 이하에서만 크리핑 작동
         
-        if accel_axis < CREEP_THRESHOLD and brake_axis < CREEP_THRESHOLD:
+        if accel_axis < CREEP_THRESHOLD and brake_axis < CREEP_THRESHOLD and self.current_speed_kmh < CREEP_SPEED_THRESHOLD:
             # 크리핑: 2km/h로 빠르게 수렴 (1초 안에 도달)
             target_speed = self.CREEP_SPEED
             speed_diff = target_speed - self.current_speed_kmh
-            # 빠른 수렴 (타임상수 0.15초) - 1초면 거의 완벽히 수렴
             alpha = 1.0 - pow(2.71828, -dt / 0.15)
             self.current_speed_kmh += speed_diff * alpha
             
-            # 거의 도달했으면 정확히 맞춤 (오차 0.1km/h 이내)
             if abs(self.current_speed_kmh - target_speed) < 0.1:
                 self.current_speed_kmh = target_speed
             
-            motor_angle = self.MOTOR_CREEP
-            return (self.current_speed_kmh, motor_angle)
+            return (self.current_speed_kmh, self.MOTOR_CREEP)
         
         # === 크리핑에서 브레이크로 감속 ===
         if accel_axis < CREEP_THRESHOLD and brake_axis >= CREEP_THRESHOLD and self.current_speed_kmh <= self.CREEP_SPEED * 1.2:
-            # 브레이크 axis에 따라 0~2km/h 선형 조절
-            # brake_axis 0 -> 2km/h, brake_axis 50 -> 0km/h
             target_speed = self.CREEP_SPEED * (1.0 - brake_axis / 50.0)
             speed_diff = target_speed - self.current_speed_kmh
-            # 빠른 수렴
             alpha = 1.0 - pow(2.71828, -dt / 0.15)
             self.current_speed_kmh += speed_diff * alpha
             
-            # 거의 도달했으면 정확히 맞춤
             if abs(self.current_speed_kmh - target_speed) < 0.05:
                 self.current_speed_kmh = target_speed
             
-            # 모터 각도도 선형 매핑: 130도(2km/h) -> 120도(0km/h)
             motor_angle = self.MOTOR_CREEP - int((brake_axis / 50.0) * (self.MOTOR_CREEP - self.MOTOR_NEUTRAL))
             return (self.current_speed_kmh, motor_angle)
         
-        # === 가속도 계산 ===
+        # === 모터 각도 및 가속도 계산 ===
+        motor_angle = self.MOTOR_NEUTRAL
         acceleration = 0.0
+        accel_ratio = accel_axis / 50.0  # 0~1
         
-        # 브레이크 우선 (브레이크 밟으면 액셀 무시)
         if brake_axis > 0.0:
-            # 브레이크 감속도: 속도와 브레이크 axis에 비례
-            # 20km/h에서 풀브레이크(50)로 2초 정지 -> 10 km/h/s
-            brake_decel = brake_axis * self.BRAKE_BASE * (1.0 + self.current_speed_kmh / 20.0)
+            # 브레이크: 중립 각도 + 감속
+            motor_angle = self.MOTOR_NEUTRAL
+            brake_decel = brake_axis * self.BRAKE_DECEL_PER_AXIS
             acceleration = -brake_decel
         
         elif accel_axis > 0.0:
-            # 액셀 가속도: 저속에서 낮고, 고속에서 높음
-            # 가속도 = accel_axis * (기본 + 속도비례)
-            # 0-20km/h 풀액셀로 8초 조건 만족하도록 튜닝
-            speed_factor = 1.0 + (self.current_speed_kmh / max_speed) * self.ACCEL_SPEED_FACTOR * max_speed
-            acceleration = (accel_axis / 50.0) * self.ACCEL_BASE * speed_factor
+            # 액셀: 페달 입력에 비례한 모터 각도
+            if gear == 'D':
+                # 전진: 120~180도
+                motor_angle = int(self.MOTOR_NEUTRAL + accel_ratio * (self.MOTOR_FORWARD_MAX - self.MOTOR_NEUTRAL))
+            else:  # gear == 'R'
+                # 후진: 120~65도
+                motor_angle = int(self.MOTOR_NEUTRAL - accel_ratio * (self.MOTOR_NEUTRAL - self.MOTOR_REVERSE_MAX))
+            
+            # 모터 출력에 따른 가속력
+            # 목표: 풀액셀로 0->20km/h 8초
+            # 평균 가속도 = 20/8 = 2.5 km/h/s
+            # 초기 가속도를 더 높게 설정하여 평균 2.5를 맞춤
+            base_accel = 3.5  # km/h/s at 풀파워
+            
+            # 속도가 높아질수록 가속력 감소 (저항 증가)
+            speed_factor = max(0.1, 1.0 - (self.current_speed_kmh / max_speed) * 0.7)
+            
+            acceleration = accel_ratio * base_accel * speed_factor
+        
+        else:
+            # 둘 다 안 밟음: 중립 각도, 관성만
+            motor_angle = self.MOTOR_NEUTRAL
         
         # 관성 저항 (항상 적용, 속도에 비례)
         drag = -self.DRAG_COEFFICIENT * self.current_speed_kmh
@@ -153,34 +160,7 @@ class RCCarPhysics:
         # 속도 제한
         self.current_speed_kmh = max(0.0, min(max_speed, self.current_speed_kmh))
         
-        # DC모터 각도 변환
-        motor_angle = self.speed_to_motor_angle(self.current_speed_kmh, gear)
-        
         return (self.current_speed_kmh, motor_angle)
-    
-    def speed_to_motor_angle(self, speed_kmh: float, gear: str) -> int:
-        """
-        속도를 DC모터 각도로 변환
-        
-        전진(D): 0km/h=120도, 20km/h=180도
-        후진(R): 0km/h=120도, 7km/h=65도
-        """
-        if speed_kmh <= 0.0:
-            return self.MOTOR_NEUTRAL
-        
-        if gear == 'D':
-            # 선형 매핑: 0~20 -> 120~180
-            ratio = speed_kmh / self.MAX_SPEED_FORWARD
-            angle = self.MOTOR_NEUTRAL + ratio * (self.MOTOR_FORWARD_MAX - self.MOTOR_NEUTRAL)
-            return int(max(self.MOTOR_NEUTRAL, min(self.MOTOR_FORWARD_MAX, round(angle))))
-        
-        elif gear == 'R':
-            # 선형 매핑: 0~7 -> 120~65
-            ratio = speed_kmh / self.MAX_SPEED_REVERSE
-            angle = self.MOTOR_NEUTRAL - ratio * (self.MOTOR_NEUTRAL - self.MOTOR_REVERSE_MAX)
-            return int(max(self.MOTOR_REVERSE_MAX, min(self.MOTOR_NEUTRAL, round(angle))))
-        
-        return self.MOTOR_NEUTRAL
 
 
 # 전역 인스턴스 (하나만 사용)
