@@ -339,8 +339,9 @@
     
     // Logitech Driving Force GT 페달 처리
     if (gp.axes.length >= 2) {
-      let gasAxis = gp.axes[1] !== undefined ? gp.axes[1] : -1;
-      let brakeAxis = gp.axes[2] !== undefined ? gp.axes[2] : -1;
+      // 주의: 일부 휠은 axes[1]=브레이크, axes[2]=가속으로 바뀌어 있음
+      let gasAxis = gp.axes[2] !== undefined ? gp.axes[2] : -1;     // 액셀 = axes[2]
+      let brakeAxis = gp.axes[1] !== undefined ? gp.axes[1] : -1;   // 브레이크 = axes[1]
       
       // 페달 범위 자동 감지 및 변환
       // 일부 휠은 -1(안 누름)~+1(누름), 일부는 +1(안 누름)~-1(누름)
