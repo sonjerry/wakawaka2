@@ -15,7 +15,7 @@
   // ===== 레이싱 휠 설정 =====
   const WHEEL_STEER_DEADZONE = 0.02;  // 스티어링 데드존
   const WHEEL_PEDAL_DEADZONE = 0.05;  // 페달 데드존
-  const WHEEL_STEER_SENSITIVITY = 1.0; // 조향 민감도 (1.0 = 기본)
+  let WHEEL_STEER_SENSITIVITY = 0.35; // 조향 민감도 (핸들 최대 회전 시 ±66도 도달) - 실시간 조정 가능
   const WHEEL_AXIS_RATE = 80;         // 레이싱 휠 페달 반응 속도
 
   // ===== DOM =====
@@ -34,10 +34,14 @@
     netLatency: document.getElementById("netLatency"),
     dbgSteer: document.getElementById("dbgSteer"),
     dbgThrottle: document.getElementById("dbgThrottle"),
+    dbgWheel: document.getElementById("dbgWheel"),
     speedValue: document.getElementById("speedValue"),
     carWheelFL: document.getElementById("carWheelFL"),
     carWheelFR: document.getElementById("carWheelFR"),
     carVisualWrapper: document.querySelector('.car-visual'),
+    wheelSettings: document.getElementById("wheelSettings"),
+    wheelSensitivity: document.getElementById("wheelSensitivity"),
+    wheelSensitivityValue: document.getElementById("wheelSensitivityValue"),
   };
 
   // ===== 상태 =====
@@ -199,8 +203,24 @@
   // ===== 레이싱 휠 감지 및 입력 처리 =====
   window.addEventListener("gamepadconnected", (e) => {
     console.log("레이싱 휠 연결됨:", e.gamepad.id);
+    console.log("축 개수:", e.gamepad.axes.length, "버튼 개수:", e.gamepad.buttons.length);
+    console.log("");
+    console.log("=== 포스 피드백(FFB) 센터링 줄이는 방법 ===");
+    console.log("1. Logitech Gaming Software 실행");
+    console.log("2. Driving Force GT 선택");
+    console.log("3. '전체 게임 프로파일 설정' 탭");
+    console.log("4. '스프링 효과 활성화' 체크 해제 또는 강도 20% 이하로 조정");
+    console.log("5. '센터링 스프링' 강도 0~20% 로 조정");
+    console.log("");
+    
     wheelConnected = true;
     wheelGamepad = e.gamepad;
+    
+    // 휠 설정 UI 표시
+    if (DOM.wheelSettings) {
+      DOM.wheelSettings.style.display = 'block';
+    }
+    
     showToast("레이싱 휠 연결됨: " + e.gamepad.id, 3000);
   });
 
@@ -208,8 +228,25 @@
     console.log("레이싱 휠 연결 해제됨:", e.gamepad.id);
     wheelConnected = false;
     wheelGamepad = null;
+    
+    // 휠 설정 UI 숨김
+    if (DOM.wheelSettings) {
+      DOM.wheelSettings.style.display = 'none';
+    }
+    
     showToast("레이싱 휠 연결 해제됨", 2000);
   });
+  
+  // 휠 민감도 슬라이더 이벤트
+  if (DOM.wheelSensitivity) {
+    DOM.wheelSensitivity.addEventListener('input', (e) => {
+      WHEEL_STEER_SENSITIVITY = parseFloat(e.target.value);
+      if (DOM.wheelSensitivityValue) {
+        DOM.wheelSensitivityValue.textContent = `${Math.round(WHEEL_STEER_SENSITIVITY * 100)}%`;
+      }
+      console.log(`조향 민감도 변경: ${WHEEL_STEER_SENSITIVITY} (핸들 ±1.0 → RC카 ±${(WHEEL_STEER_SENSITIVITY * 66).toFixed(1)}°)`);
+    });
+  }
 
   function getGamepad() {
     if (!wheelConnected) return null;
@@ -230,7 +267,10 @@
   const wheelState = {
     btn0Pressed: false,
     btn4Pressed: false,
-    btn5Pressed: false
+    btn5Pressed: false,
+    axesLogged: false,
+    lastLogTime: 0,
+    lastSteerLogTime: 0
   };
 
   function processWheelInput(dt) {
@@ -239,8 +279,18 @@
 
     // Logitech Driving Force GT 매핑:
     // Axis 0: 스티어링 휠 (-1=왼쪽, +1=오른쪽)
-    // Axis 1 또는 2: 가속 페달 (브라우저/드라이버에 따라 다름)
-    // Axis 2 또는 3: 브레이크 페달
+    // Axis 1: 가속 페달 (-1=안 누름, +1=완전히 누름)
+    // Axis 2: 브레이크 페달 (-1=안 누름, +1=완전히 누름)
+    
+    // 디버깅: 모든 축 정보 출력 (처음 한 번만)
+    if (!wheelState.axesLogged && gp.axes) {
+      console.log("=== 레이싱 휠 축 정보 ===");
+      gp.axes.forEach((axis, i) => {
+        console.log(`Axis ${i}: ${axis.toFixed(3)}`);
+      });
+      console.log(`조향 민감도: ${WHEEL_STEER_SENSITIVITY} (핸들 ±1.0 → RC카 ±${(WHEEL_STEER_SENSITIVITY * 66).toFixed(1)}°)`);
+      wheelState.axesLogged = true;
+    }
     
     // 스티어링 입력
     let steerRaw = gp.axes[0] || 0;
@@ -251,6 +301,14 @@
     const STEER_MAX = 66;
     const targetSteerAngle = steerRaw * STEER_MAX * WHEEL_STEER_SENSITIVITY;
     
+    // 주기적으로 조향각 범위 출력
+    if (!wheelState.lastSteerLogTime || (performance.now() - wheelState.lastSteerLogTime) > 2000) {
+      if (Math.abs(steerRaw) > 0.1) { // 조향 중일 때만
+        console.log(`조향 입력: 원시값 ${gp.axes[0].toFixed(3)} → 데드존 적용 ${steerRaw.toFixed(3)} → RC카 각도 ${targetSteerAngle.toFixed(1)}°`);
+      }
+      wheelState.lastSteerLogTime = performance.now();
+    }
+    
     // 이전 조향각과 비교하여 변화량 전송
     const steerDelta = targetSteerAngle - lastWheelSteerAngle;
     if (Math.abs(steerDelta) > 0.5) { // 0.5도 이상 변화 시에만 전송
@@ -258,31 +316,27 @@
       lastWheelSteerAngle = targetSteerAngle;
     }
 
-    // 페달 입력 (가속 - 브레이크)
-    // 브라우저에 따라 축 인덱스가 다를 수 있으므로 여러 축을 확인
+    // 페달 입력 처리
     let gasRaw = 0;
     let brakeRaw = 0;
     
-    // 일반적으로 Logitech 휠:
-    // - 가속: Axis 1 또는 Axis 2 (범위: -1~1 또는 0~1)
-    // - 브레이크: Axis 2 또는 Axis 3
+    // Logitech Driving Force GT의 페달은 -1(안 누름) ~ +1(완전히 누름)
     if (gp.axes.length >= 2) {
-      // Axis 1과 2를 확인 (일반적인 매핑)
-      const axis1 = gp.axes[1] || 0;
-      const axis2 = gp.axes[2] || 0;
+      const gasAxis = gp.axes[1] !== undefined ? gp.axes[1] : -1;
+      const brakeAxis = gp.axes[2] !== undefined ? gp.axes[2] : -1;
       
-      // 페달은 보통 -1(안 누름) ~ 1(완전히 누름) 범위
-      // 또는 0(안 누름) ~ 1(완전히 누름)
-      gasRaw = axis1 >= 0 ? axis1 : (axis1 + 1) / 2;
-      brakeRaw = axis2 >= 0 ? axis2 : (axis2 + 1) / 2;
+      // -1~1 범위를 0~1 범위로 변환
+      gasRaw = (gasAxis + 1) / 2;
+      brakeRaw = (brakeAxis + 1) / 2;
       
-      // 브레이크가 Axis 5에 있는 경우도 있음
-      if (gp.axes.length > 5) {
-        const axis5 = gp.axes[5] || 0;
-        brakeRaw = Math.max(brakeRaw, axis5 >= 0 ? axis5 : (axis5 + 1) / 2);
+      // 디버깅: 페달 원시값 주기적 출력
+      if (!wheelState.lastLogTime || (performance.now() - wheelState.lastLogTime) > 1000) {
+        console.log(`페달 - 가속 축[1]: ${gasAxis.toFixed(2)} → ${gasRaw.toFixed(2)}, 브레이크 축[2]: ${brakeAxis.toFixed(2)} → ${brakeRaw.toFixed(2)}`);
+        wheelState.lastLogTime = performance.now();
       }
     }
     
+    // 데드존 적용
     gasRaw = applyDeadzone(gasRaw, WHEEL_PEDAL_DEADZONE);
     brakeRaw = applyDeadzone(brakeRaw, WHEEL_PEDAL_DEADZONE);
     
@@ -290,6 +344,11 @@
     // 가속 페달 → 양수 (0~50), 브레이크 → 음수 (-50~0)
     wheelAxisTarget = (gasRaw * AXIS_MAX) - (brakeRaw * Math.abs(AXIS_MIN));
     wheelAxisTarget = clamp(wheelAxisTarget, AXIS_MIN, AXIS_MAX);
+    
+    // UI 디버깅 정보 업데이트
+    if (DOM.dbgWheel) {
+      DOM.dbgWheel.textContent = `G:${(gasRaw * 100).toFixed(0)}% B:${(brakeRaw * 100).toFixed(0)}%`;
+    }
     
     // 버튼 입력 처리 (기어 변경)
     // 일반적인 레이싱 휠 버튼 매핑:
