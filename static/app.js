@@ -5,10 +5,13 @@
   "use strict";
 
   // ===== 설정 =====
-  const AXIS_MIN = -50;
-  const AXIS_MAX = 50;
-  const AXIS_RATE_PER_S = 15;     // W/S 누르고 있을 때 초당 변화량 (40 -> 15로 감소)
-  const SEND_INTERVAL_MS = 70;     // axis 전송 주기
+  const ACCEL_MIN = 0;
+  const ACCEL_MAX = 50;
+  const BRAKE_MIN = 0;
+  const BRAKE_MAX = 50;
+  const PEDAL_RATE_PER_S = 80;     // W/S 누르고 있을 때 초당 변화량
+  const PEDAL_RELEASE_RATE = 100;  // 키에서 손 떼면 빠르게 0으로 복귀
+  const SEND_INTERVAL_MS = 70;     // 입력 전송 주기
   const STEER_STEP_DEG = 2;        // 조향 변화량(도) - 더 빠른 조향을 위해 증가 (1 -> 3)
   const STEER_SEND_MS = 17;        // 조향 전송 주기 - 더 빠른 조향을 위해 감소 (17 -> 12)
   
@@ -28,9 +31,10 @@
     btnHead: document.getElementById("btnHead"),
     btnSport: document.getElementById("btnSport"),
     readyIndicator: document.getElementById("readyIndicator"),
-    axisBarFill: document.getElementById("axisBarFill"),
-    axisBarFillNeg: document.getElementById("axisBarFillNeg"),
-    axisReadout: document.getElementById("axisReadout"),
+    accelBarFill: document.getElementById("accelBarFill"),
+    brakeBarFill: document.getElementById("brakeBarFill"),
+    accelReadout: document.getElementById("accelReadout"),
+    brakeReadout: document.getElementById("brakeReadout"),
     netLatency: document.getElementById("netLatency"),
     dbgSteer: document.getElementById("dbgSteer"),
     dbgThrottle: document.getElementById("dbgThrottle"),
@@ -49,8 +53,10 @@
     engine_running: true, // 접속=READY 개념으로 사용한 플래그(내부용)
     gear: "P",
     head_on: false,
-    axis: 0,            // -50..50
+    accel_axis: 0,      // 0..50
+    brake_axis: 0,      // 0..50
     throttleAngle: 120, // ESC 중립 기준
+    current_speed_kmh: 0, // 실제 속도 (서버에서 수신)
     // 속도 표시용 상태 (부드러운 표시)
     targetSpeedKmh: 0,
     viewSpeedKmh: 0,
@@ -66,7 +72,8 @@
   let wheelConnected = false;
   let wheelGamepad = null;
   let lastWheelSteerAngle = 0;
-  let wheelAxisTarget = 0;
+  let wheelAccelTarget = 0;
+  let wheelBrakeTarget = 0;
 
   // 웰컴 애니메이션 제거됨
 
@@ -142,7 +149,6 @@
       if (typeof msg.gear === "string") {
         state.gear = msg.gear;
         updateGearUI();
-        updateSpeedFromThrottle();
       }
       if (typeof msg.steer_angle === "number") {
         DOM.dbgSteer && (DOM.dbgSteer.textContent = `${Math.round(msg.steer_angle)}°`);
@@ -152,11 +158,17 @@
       if (typeof msg.throttle_angle === "number") {
         state.throttleAngle = msg.throttle_angle;
         DOM.dbgThrottle && (DOM.dbgThrottle.textContent = `${Math.round(state.throttleAngle)}°`);
-        updateSpeedFromThrottle();
       }
-      // RPM 제거됨
-      // 서버의 실제 속도 수신은 무시하고 (요구사항에 따라)
-      // speed 게이지는 쓰로틀 출력 기반으로만 갱신
+      if (typeof msg.current_speed_kmh === "number") {
+        state.current_speed_kmh = msg.current_speed_kmh;
+        state.targetSpeedKmh = msg.current_speed_kmh;
+      }
+      if (typeof msg.accel_axis === "number") {
+        state.accel_axis = msg.accel_axis;
+      }
+      if (typeof msg.brake_axis === "number") {
+        state.brake_axis = msg.brake_axis;
+      }
     };
   }
 
@@ -368,17 +380,17 @@
     gasRaw = applyDeadzone(gasRaw, WHEEL_PEDAL_DEADZONE);
     brakeRaw = applyDeadzone(brakeRaw, WHEEL_PEDAL_DEADZONE);
     
-    // 페달 입력을 axis 값으로 변환
-    // 가속 페달 → 양수 (0~50), 브레이크 → 음수 (-50~0)
-    wheelAxisTarget = (gasRaw * AXIS_MAX) - (brakeRaw * Math.abs(AXIS_MIN));
-    wheelAxisTarget = clamp(wheelAxisTarget, AXIS_MIN, AXIS_MAX);
+    // 페달 입력을 accel/brake axis로 분리 변환
+    // 가속 페달 → 0~50, 브레이크 → 0~50
+    wheelAccelTarget = gasRaw * ACCEL_MAX;
+    wheelBrakeTarget = brakeRaw * BRAKE_MAX;
     
     // 디버깅: 페달 원시값 주기적 출력
     if (!wheelState.lastLogTime || (performance.now() - wheelState.lastLogTime) > 1000) {
       console.log(`페달 원시값 - 가속[1]: ${wheelState.lastGasAxis.toFixed(3)}, 브레이크[2]: ${wheelState.lastBrakeAxis.toFixed(3)}`);
       console.log(`  → 변환: 가속 ${wheelState.lastGasRaw.toFixed(3)}, 브레이크 ${wheelState.lastBrakeRaw.toFixed(3)}`);
       console.log(`  → 데드존 후: 가속 ${gasRaw.toFixed(3)}, 브레이크 ${brakeRaw.toFixed(3)}`);
-      console.log(`  → 최종 axis: ${wheelAxisTarget.toFixed(1)}`);
+      console.log(`  → 최종 accel: ${wheelAccelTarget.toFixed(1)}, brake: ${wheelBrakeTarget.toFixed(1)}`);
       wheelState.lastLogTime = performance.now();
     }
     
@@ -470,8 +482,8 @@
     }
   }
 
-  // ===== axis 전송 루프 =====
-  let lastAxisSend = 0;
+  // ===== 페달 입력 전송 루프 =====
+  let lastPedalSend = 0;
   function mainLoop(ts) {
     const dt = 1 / 60; // 간단히 고정 step
     
@@ -482,21 +494,36 @@
       // 레이싱 휠이 활성 상태면 휠 입력 사용
       // 부드러운 전환을 위해 스무딩 적용
       const alpha = 1 - Math.exp(-dt / 0.05); // 50ms 타임상수
-      state.axis += (wheelAxisTarget - state.axis) * alpha;
-      state.axis = clamp(state.axis, AXIS_MIN, AXIS_MAX);
+      state.accel_axis += (wheelAccelTarget - state.accel_axis) * alpha;
+      state.brake_axis += (wheelBrakeTarget - state.brake_axis) * alpha;
+      state.accel_axis = clamp(state.accel_axis, ACCEL_MIN, ACCEL_MAX);
+      state.brake_axis = clamp(state.brake_axis, BRAKE_MIN, BRAKE_MAX);
     } else {
       // 레이싱 휠이 없으면 키보드 입력 사용
-      if (keyState.w && !keyState.s) {
-        state.axis = clamp(state.axis + AXIS_RATE_PER_S * dt, AXIS_MIN, AXIS_MAX);
-      } else if (keyState.s && !keyState.w) {
-        state.axis = clamp(state.axis - AXIS_RATE_PER_S * dt, AXIS_MIN, AXIS_MAX);
+      if (keyState.w) {
+        // W키: 액셀 증가
+        state.accel_axis = clamp(state.accel_axis + PEDAL_RATE_PER_S * dt, ACCEL_MIN, ACCEL_MAX);
+      } else {
+        // W키 안 누름: 액셀 0으로 복귀
+        state.accel_axis = Math.max(0, state.accel_axis - PEDAL_RELEASE_RATE * dt);
+      }
+      
+      if (keyState.s) {
+        // S키: 브레이크 증가
+        state.brake_axis = clamp(state.brake_axis + PEDAL_RATE_PER_S * dt, BRAKE_MIN, BRAKE_MAX);
+      } else {
+        // S키 안 누름: 브레이크 0으로 복귀
+        state.brake_axis = Math.max(0, state.brake_axis - PEDAL_RELEASE_RATE * dt);
       }
     }
 
-    // axis 주기 전송
-    if (ts - lastAxisSend >= SEND_INTERVAL_MS) {
-      send({ axis: Math.round(state.axis) });
-      lastAxisSend = ts;
+    // 페달 입력 주기 전송
+    if (ts - lastPedalSend >= SEND_INTERVAL_MS) {
+      send({ 
+        accel_axis: Math.round(state.accel_axis),
+        brake_axis: Math.round(state.brake_axis)
+      });
+      lastPedalSend = ts;
       updateAxisBar();
     }
 
@@ -578,47 +605,31 @@
   }
 
   function updateAxisBar() {
-    const range = AXIS_MAX - 5; // deadzone 5
-    const posPct = state.axis > 5 ? (state.axis - 5) / range * 100 : 0;
-    const negPct = state.axis < -5 ? (-state.axis - 5) / range * 100 : 0;
-    DOM.axisBarFill.style.height = `${posPct}%`;
-    DOM.axisBarFillNeg.style.height = `${negPct}%`;
-
-    // 색상/광도 동적 변경: R(빨강), N(노랑), D(파랑) 영역
-    // -50~-5: 빨강 계열, -5~5: 노랑, 5~50: 파랑
-    let glow = 0;
-    let colorTop = '';
-    let colorBottom = '';
-    const absAxis = Math.abs(state.axis);
-    if (state.axis < -5) {
-      const t = Math.min(1, (absAxis - 5) / 45); // -5..-50 → 0..1
-      glow = 6 + t * 18;
-      colorTop = `rgba(255, 100, 80, ${0.6 + 0.4 * t})`;
-      colorBottom = `rgba(255, 50, 30, ${0.6 + 0.4 * t})`;
-      DOM.axisBarFillNeg.style.background = `linear-gradient(${colorTop}, ${colorBottom})`;
-      DOM.axisBarFillNeg.style.boxShadow = `0 0 ${glow}px rgba(255, 60, 40, ${0.5 + 0.4 * t})`;
-      DOM.axisBarFill.style.boxShadow = 'none';
-    } else if (state.axis > 5) {
-      const t = Math.min(1, (absAxis - 5) / 45); // 5..50 → 0..1
-      glow = 6 + t * 18;
-      colorTop = `rgba(120, 200, 255, ${0.6 + 0.4 * t})`;
-      colorBottom = `rgba(60, 160, 255, ${0.6 + 0.4 * t})`;
-      DOM.axisBarFill.style.background = `linear-gradient(${colorTop}, ${colorBottom})`;
-      DOM.axisBarFill.style.boxShadow = `0 0 ${glow}px rgba(60, 160, 255, ${0.5 + 0.4 * t})`;
-      DOM.axisBarFillNeg.style.boxShadow = 'none';
-    } else {
-      // -5..5: 은은한 노랑 앰비언트
-      const t = absAxis / 5; // 0..1
-      glow = 4 + t * 8;
-      const y1 = `rgba(255, 220, 100, ${0.45 + 0.45 * t})`;
-      const y2 = `rgba(255, 200, 60, ${0.45 + 0.45 * t})`;
-      // 중앙 영역이므로 양/음 모두 살짝 빛남
-      DOM.axisBarFill.style.background = `linear-gradient(${y1}, ${y2})`;
-      DOM.axisBarFillNeg.style.background = `linear-gradient(${y1}, ${y2})`;
-      DOM.axisBarFill.style.boxShadow = `0 0 ${glow}px rgba(255, 210, 80, ${0.4 + 0.5 * t})`;
-      DOM.axisBarFillNeg.style.boxShadow = `0 0 ${glow}px rgba(255, 210, 80, ${0.4 + 0.5 * t})`;
-    }
-    DOM.axisReadout.textContent = Math.round(state.axis);
+    // 액셀 바 업데이트 (파란색)
+    const accelPct = (state.accel_axis / ACCEL_MAX) * 100;
+    DOM.accelBarFill.style.height = `${accelPct}%`;
+    DOM.accelReadout.textContent = Math.round(state.accel_axis);
+    
+    // 액셀 색상/광도 (파란색 계열)
+    const accelIntensity = state.accel_axis / ACCEL_MAX; // 0..1
+    const accelGlow = 4 + accelIntensity * 16;
+    const accelColorTop = `rgba(100, 180, 255, ${0.5 + 0.5 * accelIntensity})`;
+    const accelColorBottom = `rgba(60, 140, 255, ${0.6 + 0.4 * accelIntensity})`;
+    DOM.accelBarFill.style.background = `linear-gradient(to top, ${accelColorBottom}, ${accelColorTop})`;
+    DOM.accelBarFill.style.boxShadow = `0 0 ${accelGlow}px rgba(80, 160, 255, ${0.4 + 0.6 * accelIntensity})`;
+    
+    // 브레이크 바 업데이트 (빨간색)
+    const brakePct = (state.brake_axis / BRAKE_MAX) * 100;
+    DOM.brakeBarFill.style.height = `${brakePct}%`;
+    DOM.brakeReadout.textContent = Math.round(state.brake_axis);
+    
+    // 브레이크 색상/광도 (빨간색 계열)
+    const brakeIntensity = state.brake_axis / BRAKE_MAX; // 0..1
+    const brakeGlow = 4 + brakeIntensity * 16;
+    const brakeColorTop = `rgba(255, 100, 80, ${0.5 + 0.5 * brakeIntensity})`;
+    const brakeColorBottom = `rgba(255, 50, 30, ${0.6 + 0.4 * brakeIntensity})`;
+    DOM.brakeBarFill.style.background = `linear-gradient(to top, ${brakeColorBottom}, ${brakeColorTop})`;
+    DOM.brakeBarFill.style.boxShadow = `0 0 ${brakeGlow}px rgba(255, 70, 50, ${0.4 + 0.6 * brakeIntensity})`;
   }
 
   function updateNetworkLatency(rtt) {
@@ -631,37 +642,7 @@
 
   // RPM 관련 로직 제거됨
 
-  // ===== 쓰로틀 기반 Speed 숫자 표시 (Tesla 스타일) =====
-  function updateSpeedFromThrottle() {
-    // 요구사항: axis -5..5 근처에서 throttle ≈ 130
-    // D: throttle 130 → 4 km/h, 180 → 60 km/h 선형 매핑
-    // R: throttle 120 → 4 km/h, 65 → 60 km/h 선형 매핑, 유휴 데드존(118~130)은 0 km/h
-    const t = Number(state.throttleAngle);
-    let kmh = 0;
-
-    if (state.gear === 'D') {
-      if (t >= 130) {
-        const tClamped = Math.min(180, t);
-        kmh = 4 + (tClamped - 130) * (56 / 50); // 130..180 (50도) → 4..60
-      } else {
-        kmh = 0;
-      }
-    } else if (state.gear === 'R') {
-      const DEAD = 2; // 120±2 내 유휴 처리
-      if (t <= 120 - DEAD) {
-        const tClamped = Math.max(65, t);
-        kmh = 4 + ((120 - DEAD) - tClamped) * (56 / ((120 - DEAD) - 65));
-      } else {
-        kmh = 0;
-      }
-    } else {
-      kmh = 0;
-    }
-
-    if (kmh < 0) kmh = 0;
-    if (kmh > 60) kmh = 60;
-    state.targetSpeedKmh = kmh;
-  }
+  // 속도는 이제 서버에서 물리 시뮬레이션으로 계산됨
 
   // 웰컴 스윕 제거됨
 

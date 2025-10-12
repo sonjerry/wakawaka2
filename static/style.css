@@ -374,61 +374,69 @@ body.sport-mode-active .card {
 }
 
 
-/* ==== 5. 기타 UI (입력 바, 네트워크 등) ==== */
+/* ==== 5. 기타 UI (페달 입력 바, 네트워크 등) ==== */
 
-.axis-card {
+.pedals-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
 }
 
-.axis-title {
+.pedal-container {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.pedal-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.pedal-title {
   font-weight: 700;
   letter-spacing: 1px;
   color: var(--muted);
+  font-size: 0.7rem;
 }
 
-.axis-bar {
-  height: 160px;
-  width: 28px;
+.pedal-bar {
+  height: 140px;
+  width: 24px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
   position: relative;
   background: #f2f4f7;
   overflow: hidden;
 }
 
-.axis-fill-pos, .axis-fill-neg {
+.pedal-fill {
   position: absolute;
+  bottom: 0;
   left: 0;
   right: 0;
   height: 0;
-  opacity: .9;
+  opacity: 0.9;
+  transition: height 0.1s ease-out;
 }
 
-.axis-fill-pos {
-  bottom: 50%;
-  background: linear-gradient(#ff7060, #ffb0a6);
+.accel-fill {
+  background: linear-gradient(to top, #60a5fa, #93c5fd);
+  box-shadow: 0 0 8px rgba(96, 165, 250, 0.5);
 }
 
-.axis-fill-neg {
-  top: 50%;
-  background: linear-gradient(#96c7ff, #4fd1ff);
+.brake-fill {
+  background: linear-gradient(to top, #ef4444, #f87171);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
 }
 
-.axis-center-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(50% - 1px);
-  height: 2px;
-  background: rgba(17, 24, 39, .12);
-}
-
-.axis-readout {
-  font-size: 0.9rem;
+.pedal-readout {
+  font-size: 0.85rem;
   font-weight: bold;
+  color: var(--ink);
 }
 
 /* ==== 레이싱 휠 설정 카드 ==== */

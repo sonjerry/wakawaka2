@@ -3,24 +3,34 @@ from flask_sock import Sock
 import threading
 import json
 import time
-from simulate import map_axis_to_angle
+from simulate import get_physics_engine
 from hardware import (
     init_hardware, set_steer_angle, set_throttle, arm_esc_sequence, set_led,
-    AXIS_MIN, AXIS_MAX, STEER_MIN, STEER_MAX, SERVO_PULSE_MIN, SERVO_PULSE_MAX
+    STEER_MIN, STEER_MAX, SERVO_PULSE_MIN, SERVO_PULSE_MAX
 )
 
 app = Flask(__name__)
 sock = Sock(app)
+
+# 물리 엔진 인스턴스
+physics = get_physics_engine()
+
+# 입력 범위
+ACCEL_MIN = 0
+ACCEL_MAX = 50
+BRAKE_MIN = 0
+BRAKE_MAX = 50
 
 # 상태
 state = {
     'engine_running': False,
     'gear': 'P',
     'head_on': False,
-    'axis': 0,
+    'accel_axis': 0,
+    'brake_axis': 0,
     'steer_angle': 0,
     'throttle_angle': 120,
-    # RPM/속도 제거
+    'current_speed_kmh': 0.0,
 }
 
 # 하드웨어 초기화 (조향 중앙, ESC 중립)
@@ -88,8 +98,43 @@ def steer_auto_center_loop():
             pass
         time.sleep(0.02)
 
+# 물리 시뮬레이션 루프 (20ms 주기)
+def physics_simulation_loop():
+    """물리 시뮬레이션 및 모터 제어 루프"""
+    last_broadcast_at = 0.0
+    while True:
+        try:
+            # 물리 엔진 업데이트
+            speed_kmh, motor_angle = physics.update(
+                state['accel_axis'],
+                state['brake_axis'],
+                state['gear']
+            )
+            
+            # 상태 업데이트
+            state['current_speed_kmh'] = speed_kmh
+            state['throttle_angle'] = motor_angle
+            
+            # 모터 제어
+            set_throttle(motor_angle)
+            
+            # 주기적으로 클라이언트에게 브로드캐스트 (100ms마다)
+            now = time.monotonic()
+            if (now - last_broadcast_at) > 0.1:
+                broadcast_update({
+                    'throttle_angle': state['throttle_angle'],
+                    'current_speed_kmh': round(state['current_speed_kmh'], 1)
+                })
+                last_broadcast_at = now
+        except Exception as e:
+            print(f"Physics loop error: {e}")
+            pass
+        
+        time.sleep(0.02)  # 20ms (50Hz)
+
 # 백그라운드 스레드 시작
 threading.Thread(target=steer_auto_center_loop, daemon=True).start()
+threading.Thread(target=physics_simulation_loop, daemon=True).start()
 
 def broadcast_update(payload: dict):
     message = json.dumps({'type': 'update', **payload})
@@ -117,11 +162,14 @@ def process_message_dict(msg: dict):
         set_led(state['head_on'])  # 실제 LED 하드웨어 제어
         broadcast_update({'head_on': state['head_on']})
 
-    if 'gear' in msg and state['axis'] < 0:
+    # 기어 변경: 정지 상태 + 브레이크 밟음
+    if 'gear' in msg:
         new_gear = msg['gear']
         if new_gear in ['P', 'R', 'N', 'D']:
-            state['gear'] = new_gear
-            broadcast_update({'gear': state['gear']})
+            # 조건: 속도가 0이고 브레이크를 밟고 있어야 함
+            if state['current_speed_kmh'] <= 0.1 and state['brake_axis'] > 0:
+                state['gear'] = new_gear
+                broadcast_update({'gear': state['gear']})
 
     if 'steer_delta' in msg:
         state['steer_angle'] = max(STEER_MIN, min(STEER_MAX, state['steer_angle'] + msg['steer_delta']))
@@ -130,13 +178,15 @@ def process_message_dict(msg: dict):
         # 조향 수동 입력 타임스탬프 갱신
         last_steer_input_at = time.monotonic()
 
-    if 'axis' in msg:
-        state['axis'] = max(AXIS_MIN, min(AXIS_MAX, msg['axis']))
-        # ESC 명령은 기존 규칙 유지 (전/후진 및 크리핑)
-        angle = map_axis_to_angle(state['axis'], state['gear'])
-        set_throttle(angle)
-        state['throttle_angle'] = angle
-        broadcast_update({'axis': state['axis'], 'throttle_angle': state['throttle_angle']})
+    # 액셀 입력
+    if 'accel_axis' in msg:
+        state['accel_axis'] = max(ACCEL_MIN, min(ACCEL_MAX, msg['accel_axis']))
+        broadcast_update({'accel_axis': state['accel_axis']})
+    
+    # 브레이크 입력
+    if 'brake_axis' in msg:
+        state['brake_axis'] = max(BRAKE_MIN, min(BRAKE_MAX, msg['brake_axis']))
+        broadcast_update({'brake_axis': state['brake_axis']})
 
     return None
 

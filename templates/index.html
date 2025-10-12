@@ -150,14 +150,23 @@
           <button class="gear-btn" data-gear="D" aria-label="D 기어">D</button>
         </div>
         
-        <div class="card axis-card" aria-label="입력축 표시">
-          <div class="axis-title">INPUT</div>
-          <div class="axis-bar" aria-hidden="true">
-            <div class="axis-fill-pos" id="axisBarFill"></div>
-            <div class="axis-fill-neg" id="axisBarFillNeg"></div>
-            <div class="axis-center-line"></div>
+        <div class="card pedals-card" aria-label="페달 입력 표시">
+          <div class="pedal-container">
+            <div class="pedal-col">
+              <div class="pedal-title">ACCEL</div>
+              <div class="pedal-bar accel-bar" aria-hidden="true">
+                <div class="pedal-fill accel-fill" id="accelBarFill"></div>
+              </div>
+              <div class="pedal-readout" id="accelReadout">0</div>
+            </div>
+            <div class="pedal-col">
+              <div class="pedal-title">BRAKE</div>
+              <div class="pedal-bar brake-bar" aria-hidden="true">
+                <div class="pedal-fill brake-fill" id="brakeBarFill"></div>
+              </div>
+              <div class="pedal-readout" id="brakeReadout">0</div>
+            </div>
           </div>
-          <div class="axis-readout" id="axisReadout">0</div>
         </div>
 
         <div class="card debug-card" aria-label="디버그 표시">
