@@ -270,7 +270,11 @@
     btn5Pressed: false,
     axesLogged: false,
     lastLogTime: 0,
-    lastSteerLogTime: 0
+    lastSteerLogTime: 0,
+    lastGasAxis: 0,
+    lastBrakeAxis: 0,
+    lastGasRaw: 0,
+    lastBrakeRaw: 0
   };
 
   function processWheelInput(dt) {
@@ -320,20 +324,44 @@
     let gasRaw = 0;
     let brakeRaw = 0;
     
-    // Logitech Driving Force GT의 페달은 -1(안 누름) ~ +1(완전히 누름)
+    // Logitech Driving Force GT 페달 처리
     if (gp.axes.length >= 2) {
       const gasAxis = gp.axes[1] !== undefined ? gp.axes[1] : -1;
       const brakeAxis = gp.axes[2] !== undefined ? gp.axes[2] : -1;
       
-      // -1~1 범위를 0~1 범위로 변환
-      gasRaw = (gasAxis + 1) / 2;
-      brakeRaw = (brakeAxis + 1) / 2;
+      // 페달 범위 확인 및 변환
+      // 대부분의 Logitech 휠: -1(안 누름) ~ +1(완전히 누름)
+      // 일부 브라우저/드라이버: 0(안 누름) ~ +1(완전히 누름)
       
-      // 디버깅: 페달 원시값 주기적 출력
-      if (!wheelState.lastLogTime || (performance.now() - wheelState.lastLogTime) > 1000) {
-        console.log(`페달 - 가속 축[1]: ${gasAxis.toFixed(2)} → ${gasRaw.toFixed(2)}, 브레이크 축[2]: ${brakeAxis.toFixed(2)} → ${brakeRaw.toFixed(2)}`);
-        wheelState.lastLogTime = performance.now();
+      // 가속 페달: -1 또는 0을 기준으로 정규화
+      if (gasAxis < -0.9) {
+        // -1 기준: -1(안 누름) ~ +1(누름) → 0~1
+        gasRaw = (gasAxis + 1) / 2;
+      } else if (gasAxis >= -0.1) {
+        // 0 기준: 0(안 누름) ~ +1(누름) → 0~1
+        gasRaw = gasAxis;
+      } else {
+        // 중간값인 경우 0으로 처리
+        gasRaw = 0;
       }
+      
+      // 브레이크 페달: 동일한 로직
+      if (brakeAxis < -0.9) {
+        // -1 기준
+        brakeRaw = (brakeAxis + 1) / 2;
+      } else if (brakeAxis >= -0.1) {
+        // 0 기준
+        brakeRaw = brakeAxis;
+      } else {
+        // 중간값인 경우 0으로 처리
+        brakeRaw = 0;
+      }
+      
+      // 디버깅 정보 저장
+      wheelState.lastGasAxis = gasAxis;
+      wheelState.lastBrakeAxis = brakeAxis;
+      wheelState.lastGasRaw = gasRaw;
+      wheelState.lastBrakeRaw = brakeRaw;
     }
     
     // 데드존 적용
@@ -344,6 +372,15 @@
     // 가속 페달 → 양수 (0~50), 브레이크 → 음수 (-50~0)
     wheelAxisTarget = (gasRaw * AXIS_MAX) - (brakeRaw * Math.abs(AXIS_MIN));
     wheelAxisTarget = clamp(wheelAxisTarget, AXIS_MIN, AXIS_MAX);
+    
+    // 디버깅: 페달 원시값 주기적 출력
+    if (!wheelState.lastLogTime || (performance.now() - wheelState.lastLogTime) > 1000) {
+      console.log(`페달 원시값 - 가속[1]: ${wheelState.lastGasAxis.toFixed(3)}, 브레이크[2]: ${wheelState.lastBrakeAxis.toFixed(3)}`);
+      console.log(`  → 변환: 가속 ${wheelState.lastGasRaw.toFixed(3)}, 브레이크 ${wheelState.lastBrakeRaw.toFixed(3)}`);
+      console.log(`  → 데드존 후: 가속 ${gasRaw.toFixed(3)}, 브레이크 ${brakeRaw.toFixed(3)}`);
+      console.log(`  → 최종 axis: ${wheelAxisTarget.toFixed(1)}`);
+      wheelState.lastLogTime = performance.now();
+    }
     
     // UI 디버깅 정보 업데이트
     if (DOM.dbgWheel) {
