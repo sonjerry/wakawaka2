@@ -31,8 +31,8 @@ class RCCarPhysics:
     # 가속: 0->20km/h 풀액셀(50)로 8초
     # 평균 가속도 = 20/8 = 2.5 km/h/s
     # 저속일수록 가속 느림 -> 가속도가 속도에 비례하도록
-    ACCEL_BASE = 0.8         # 기본 가속도 (km/h/s per accel_axis unit)
-    ACCEL_SPEED_FACTOR = 0.04  # 속도에 비례한 추가 가속도
+    ACCEL_BASE = 2.0         # 기본 가속도 (km/h/s per accel_axis unit)
+    ACCEL_SPEED_FACTOR = 0.4  # 속도에 비례한 추가 가속도
     
     # 브레이크: 20km/h에서 풀브레이크(50)로 2초 정지
     # 필요 감속도 = 20/2 = 10 km/h/s
