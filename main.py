@@ -102,21 +102,37 @@ def steer_auto_center_loop():
 def physics_simulation_loop():
     """물리 시뮬레이션 및 모터 제어 루프"""
     last_broadcast_at = 0.0
+    smoothed_motor_angle = 120.0  # 초기값 (중립)
+    
     while True:
         try:
             # 물리 엔진 업데이트
-            speed_kmh, motor_angle = physics.update(
+            speed_kmh, target_motor_angle = physics.update(
                 state['accel_axis'],
                 state['brake_axis'],
                 state['gear']
             )
             
+            # 모터 각도 스무딩 (exponential smoothing)
+            # 타임상수 약 100ms - 부드러운 가속/감속
+            MOTOR_SMOOTHING = 0.3  # 0~1, 높을수록 빠른 반응
+            smoothed_motor_angle += (target_motor_angle - smoothed_motor_angle) * MOTOR_SMOOTHING
+            
+            # 급격한 변화 제한 (slew rate limiting)
+            # 최대 변화율: 50도/초 = 1도/20ms
+            MAX_CHANGE_PER_CYCLE = 2.0  # 20ms당 최대 2도 변화
+            angle_diff = target_motor_angle - smoothed_motor_angle
+            if abs(angle_diff) > MAX_CHANGE_PER_CYCLE:
+                smoothed_motor_angle += MAX_CHANGE_PER_CYCLE if angle_diff > 0 else -MAX_CHANGE_PER_CYCLE
+            
+            final_motor_angle = int(round(smoothed_motor_angle))
+            
             # 상태 업데이트
             state['current_speed_kmh'] = speed_kmh
-            state['throttle_angle'] = motor_angle
+            state['throttle_angle'] = final_motor_angle
             
             # 모터 제어
-            set_throttle(motor_angle)
+            set_throttle(final_motor_angle)
             
             # 주기적으로 클라이언트에게 브로드캐스트 (100ms마다)
             now = time.monotonic()
