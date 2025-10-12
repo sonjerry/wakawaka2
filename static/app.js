@@ -55,6 +55,7 @@
     head_on: false,
     accel_axis: 0,      // 0..50
     brake_axis: 0,      // 0..50
+    steer_angle: 0,     // -66..66 (서버와 동기화)
     throttleAngle: 120, // ESC 중립 기준
     current_speed_kmh: 0, // 실제 속도 (서버에서 수신)
     // 속도 표시용 상태 (부드러운 표시)
@@ -151,6 +152,7 @@
         updateGearUI();
       }
       if (typeof msg.steer_angle === "number") {
+        state.steer_angle = msg.steer_angle;  // 서버와 동기화
         DOM.dbgSteer && (DOM.dbgSteer.textContent = `${Math.round(msg.steer_angle)}°`);
         state.targetSteerAngle = msg.steer_angle;
         state.lastSteerMsgAt = performance.now();
@@ -326,11 +328,11 @@
       wheelState.lastSteerLogTime = performance.now();
     }
     
-    // 이전 조향각과 비교하여 변화량 전송
-    const steerDelta = targetSteerAngle - lastWheelSteerAngle;
-    if (Math.abs(steerDelta) > 0.5) { // 0.5도 이상 변화 시에만 전송
-      send({ steer_delta: Math.round(steerDelta) });
-      lastWheelSteerAngle = targetSteerAngle;
+    // 레이싱 휠은 절대값으로 전송 (네트워크 불안정 시 동기화 문제 방지)
+    const steerAngle = Math.round(targetSteerAngle);
+    if (Math.abs(steerAngle - lastWheelSteerAngle) > 0.5) {
+      send({ steer_angle: steerAngle });  // 절대값 전송
+      lastWheelSteerAngle = steerAngle;
     }
 
     // 페달 입력 처리
@@ -464,8 +466,10 @@
     setTimeout(() => toast.classList.remove('show'), duration);
   }
 
-  // ===== 조향: A/D 누르는 동안 주기적으로 steer_delta 전송 (자동 복귀 없음) =====
+  // ===== 조향: A/D 누르는 동안 주기적으로 steer_delta 전송 =====
   let steerTimer = null;
+  let keyboardSteerAngle = 0;  // 키보드 조향 로컬 상태
+  
   function updateSteerLoop() {
     // 레이싱 휠이 연결되어 있으면 키보드 조향 비활성화
     if (wheelConnected && getGamepad()) {
@@ -476,12 +480,19 @@
       return;
     }
     
+    // 서버로부터 받은 값으로 주기적 동기화 (드리프트 방지)
+    keyboardSteerAngle = state.steer_angle;
+    
     // 키보드 조향 처리
     const wantSteer = keyState.a || keyState.d;
     if (wantSteer && !steerTimer) {
       steerTimer = setInterval(() => {
         const sign = keyState.a && !keyState.d ? -1 : (keyState.d && !keyState.a ? +1 : 0);
-        if (sign !== 0) send({ steer_delta: sign * STEER_STEP_DEG });
+        if (sign !== 0) {
+          // 로컬 예측 업데이트
+          keyboardSteerAngle = Math.max(-66, Math.min(66, keyboardSteerAngle + sign * STEER_STEP_DEG));
+          send({ steer_delta: sign * STEER_STEP_DEG });
+        }
       }, STEER_SEND_MS);
     } else if (!wantSteer && steerTimer) {
       clearInterval(steerTimer);

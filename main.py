@@ -171,11 +171,18 @@ def process_message_dict(msg: dict):
                 state['gear'] = new_gear
                 broadcast_update({'gear': state['gear']})
 
-    if 'steer_delta' in msg:
+    # 조향 입력 (절대값 또는 delta 둘 다 지원)
+    if 'steer_angle' in msg:
+        # 절대값 방식 (레이싱 휠)
+        state['steer_angle'] = max(STEER_MIN, min(STEER_MAX, msg['steer_angle']))
+        set_steer_angle(state['steer_angle'])
+        broadcast_update({'steer_angle': state['steer_angle']})
+        last_steer_input_at = time.monotonic()
+    elif 'steer_delta' in msg:
+        # Delta 방식 (키보드)
         state['steer_angle'] = max(STEER_MIN, min(STEER_MAX, state['steer_angle'] + msg['steer_delta']))
         set_steer_angle(state['steer_angle'])
         broadcast_update({'steer_angle': state['steer_angle']})
-        # 조향 수동 입력 타임스탬프 갱신
         last_steer_input_at = time.monotonic()
 
     # 액셀 입력

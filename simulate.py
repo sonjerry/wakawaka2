@@ -46,6 +46,7 @@ class RCCarPhysics:
     def __init__(self):
         self.current_speed_kmh = 0.0  # 현재 속도 (항상 양수)
         self.last_update_time = time.monotonic()
+        self.last_debug_time = 0.0  # 디버깅 출력 타이머
     
     def reset(self):
         """시뮬레이션 초기화"""
@@ -89,22 +90,38 @@ class RCCarPhysics:
         max_speed = self.MAX_SPEED_FORWARD if gear == 'D' else self.MAX_SPEED_REVERSE
         
         # === 크리핑 처리 ===
-        if accel_axis == 0.0 and brake_axis == 0.0:
-            # 크리핑: 2km/h로 부드럽게 수렴
+        # 액셀/브레이크를 거의 밟지 않은 상태 (데드존 고려)
+        CREEP_THRESHOLD = 1.0  # axis 값이 1 미만이면 크리핑으로 간주
+        
+        if accel_axis < CREEP_THRESHOLD and brake_axis < CREEP_THRESHOLD:
+            # 크리핑: 2km/h로 빠르게 수렴 (1초 안에 도달)
             target_speed = self.CREEP_SPEED
             speed_diff = target_speed - self.current_speed_kmh
-            # 지수 수렴 (타임상수 0.5초)
-            self.current_speed_kmh += speed_diff * (1.0 - pow(2.71828, -dt / 0.5))
+            # 빠른 수렴 (타임상수 0.15초) - 1초면 거의 완벽히 수렴
+            alpha = 1.0 - pow(2.71828, -dt / 0.15)
+            self.current_speed_kmh += speed_diff * alpha
+            
+            # 거의 도달했으면 정확히 맞춤 (오차 0.1km/h 이내)
+            if abs(self.current_speed_kmh - target_speed) < 0.1:
+                self.current_speed_kmh = target_speed
+            
             motor_angle = self.MOTOR_CREEP
             return (self.current_speed_kmh, motor_angle)
         
         # === 크리핑에서 브레이크로 감속 ===
-        if accel_axis == 0.0 and brake_axis > 0.0 and self.current_speed_kmh <= self.CREEP_SPEED:
+        if accel_axis < CREEP_THRESHOLD and brake_axis >= CREEP_THRESHOLD and self.current_speed_kmh <= self.CREEP_SPEED * 1.2:
             # 브레이크 axis에 따라 0~2km/h 선형 조절
             # brake_axis 0 -> 2km/h, brake_axis 50 -> 0km/h
             target_speed = self.CREEP_SPEED * (1.0 - brake_axis / 50.0)
             speed_diff = target_speed - self.current_speed_kmh
-            self.current_speed_kmh += speed_diff * (1.0 - pow(2.71828, -dt / 0.3))
+            # 빠른 수렴
+            alpha = 1.0 - pow(2.71828, -dt / 0.15)
+            self.current_speed_kmh += speed_diff * alpha
+            
+            # 거의 도달했으면 정확히 맞춤
+            if abs(self.current_speed_kmh - target_speed) < 0.05:
+                self.current_speed_kmh = target_speed
+            
             # 모터 각도도 선형 매핑: 130도(2km/h) -> 120도(0km/h)
             motor_angle = self.MOTOR_CREEP - int((brake_axis / 50.0) * (self.MOTOR_CREEP - self.MOTOR_NEUTRAL))
             return (self.current_speed_kmh, motor_angle)
