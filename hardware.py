@@ -72,7 +72,11 @@ def set_throttle(angle):
         # 전진 영역: 130-180도 -> 1875-2200μs
         pulse_width = int(1875 + (angle - 130) / (180 - 130) * (2200 - 1875))
     
-    kit.servo[ESC_CHANNEL].set_pulse_width(pulse_width)
+    # PCA9685 직접 제어: pulse_width(μs) -> duty_cycle
+    # 50Hz = 20ms = 20000μs
+    # duty_cycle = (pulse_width / 20000) * 4095
+    duty = int((pulse_width / 20000.0) * 4095)
+    kit._pca.channels[ESC_CHANNEL].duty_cycle = duty
     return pulse_width
 
 def set_led(on: bool) -> None:
@@ -91,10 +95,12 @@ def set_led(on: bool) -> None:
 def arm_esc_sequence() -> None:
     """ESC 아밍 시퀀스: 1599μs, 1799μs"""
     # 1599μs
-    kit.servo[ESC_CHANNEL].set_pulse_width(1599)
+    duty = int((1599 / 20000.0) * 4095)
+    kit._pca.channels[ESC_CHANNEL].duty_cycle = duty
     time.sleep(0.5)
     # 1799μs
-    kit.servo[ESC_CHANNEL].set_pulse_width(1799)
+    duty = int((1799 / 20000.0) * 4095)
+    kit._pca.channels[ESC_CHANNEL].duty_cycle = duty
     time.sleep(0.5)
     # 중립 (1800μs)
     set_throttle(120)
