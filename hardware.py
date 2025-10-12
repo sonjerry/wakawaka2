@@ -12,7 +12,7 @@ STEER_MIN = -66
 STEER_MAX = 66
 
 # 서보 PWM 펄스 범위
-SERVO_PULSE_MIN = 1700
+SERVO_PULSE_MIN = 1599 
 SERVO_PULSE_MAX = 2200
 
 # 채널 매핑
@@ -52,8 +52,27 @@ def set_steer_angle(steer_deg_minus90_to_90: int) -> None:
     kit.servo[STEER_CHANNEL].angle = int(max(0, min(180, round(servo_angle))))
 
 def set_throttle(angle):
-    pulse_width = int(1000 + (angle / 180) * 1198)  # 0°=1000μs, 90°≈1599μs, 180°≈2198μs
-    kit.servo[ESC_CHANNEL].angle = angle
+    """
+    ESC PWM 매핑:
+    - 65도 (후진 최대): 1600μs
+    - 120도 (중립): 1800μs
+    - 130도 (크리핑): 1875μs
+    - 180도 (전진 최대): 2200μs
+    - 아밍: 1599μs, 1799μs
+    """
+    angle = max(65, min(180, angle))
+    
+    if angle < 120:
+        # 후진 영역: 65-120도 -> 1600-1800μs
+        pulse_width = int(1600 + (angle - 65) / (120 - 65) * (1800 - 1600))
+    elif angle < 130:
+        # 크리핑 영역: 120-130도 -> 1800-1875μs
+        pulse_width = int(1800 + (angle - 120) / (130 - 120) * (1875 - 1800))
+    else:
+        # 전진 영역: 130-180도 -> 1875-2200μs
+        pulse_width = int(1875 + (angle - 130) / (180 - 130) * (2200 - 1875))
+    
+    kit.servo[ESC_CHANNEL].set_pulse_width_range(pulse_width, pulse_width)
     return pulse_width
 
 def set_led(on: bool) -> None:
@@ -70,5 +89,13 @@ def set_led(on: bool) -> None:
         kit._pca.channels[LED_CHANNEL].duty_cycle = 0
 
 def arm_esc_sequence() -> None:
+    """ESC 아밍 시퀀스: 1599μs, 1799μs"""
+    # 1599μs
+    kit.servo[ESC_CHANNEL].set_pulse_width_range(1599, 1599)
+    time.sleep(0.5)
+    # 1799μs
+    kit.servo[ESC_CHANNEL].set_pulse_width_range(1799, 1799)
+    time.sleep(0.5)
+    # 중립 (1800μs)
     set_throttle(120)
 
