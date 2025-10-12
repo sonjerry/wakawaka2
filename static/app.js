@@ -435,18 +435,24 @@
   
   // 기어 변경 헬퍼 함수
   function shiftGearUp() {
+    // + 버튼: P→R→N→D
     const gears = ['P', 'R', 'N', 'D'];
     const currentIdx = gears.indexOf(state.gear);
     if (currentIdx < gears.length - 1) {
-      send({ gear: gears[currentIdx + 1] });
+      const nextGear = gears[currentIdx + 1];
+      console.log(`🔼 기어 업: ${state.gear} → ${nextGear}`);
+      send({ gear: nextGear });
     }
   }
   
   function shiftGearDown() {
+    // - 버튼: D→N→R→P
     const gears = ['P', 'R', 'N', 'D'];
     const currentIdx = gears.indexOf(state.gear);
     if (currentIdx > 0) {
-      send({ gear: gears[currentIdx - 1] });
+      const prevGear = gears[currentIdx - 1];
+      console.log(`🔽 기어 다운: ${state.gear} → ${prevGear}`);
+      send({ gear: prevGear });
     }
   }
 
