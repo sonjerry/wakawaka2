@@ -382,11 +382,17 @@
     
     // 디버깅: 페달 원시값 주기적 출력
     if (!wheelState.lastLogTime || (performance.now() - wheelState.lastLogTime) > 1000) {
-      console.log(`\n=== 페달 디버깅 ===`);
-      console.log(`원시 axes[1] (가속): ${wheelState.lastGasAxis.toFixed(3)} → 정규화: ${wheelState.lastGasRaw.toFixed(3)}`);
-      console.log(`원시 axes[2] (브레이크): ${wheelState.lastBrakeAxis.toFixed(3)} → 정규화: ${wheelState.lastBrakeRaw.toFixed(3)}`);
-      console.log(`데드존 적용 후 - 가속: ${gasRaw.toFixed(3)}, 브레이크: ${brakeRaw.toFixed(3)}`);
-      console.log(`최종 출력 - accel_axis: ${wheelAccelTarget.toFixed(1)}, brake_axis: ${wheelBrakeTarget.toFixed(1)}`);
+      console.log(`\n=== 페달 디버깅 (모든 axes) ===`);
+      // 모든 축 출력
+      gp.axes.forEach((axis, i) => {
+        console.log(`  Axis[${i}]: ${axis.toFixed(3)}`);
+      });
+      console.log(`\n현재 매핑:`);
+      console.log(`  액셀(axes[2]): ${wheelState.lastGasAxis.toFixed(3)} → 정규화: ${wheelState.lastGasRaw.toFixed(3)}`);
+      console.log(`  브레이크(axes[1]): ${wheelState.lastBrakeAxis.toFixed(3)} → 정규화: ${wheelState.lastBrakeRaw.toFixed(3)}`);
+      console.log(`데드존 후 - 가속: ${gasRaw.toFixed(3)}, 브레이크: ${brakeRaw.toFixed(3)}`);
+      console.log(`최종 - accel_axis: ${wheelAccelTarget.toFixed(1)}, brake_axis: ${wheelBrakeTarget.toFixed(1)}`);
+      console.log(`\n👉 브레이크 페달을 밟고 어떤 축이 변하는지 확인하세요!`);
       wheelState.lastLogTime = performance.now();
     }
     
