@@ -72,7 +72,7 @@ def set_throttle(angle):
         # 전진 영역: 130-180도 -> 1875-2200μs
         pulse_width = int(1875 + (angle - 130) / (180 - 130) * (2200 - 1875))
     
-    kit.servo[ESC_CHANNEL].set_pulse_width_range(pulse_width, pulse_width)
+    kit.servo[ESC_CHANNEL].set_pulse_width(pulse_width)
     return pulse_width
 
 def set_led(on: bool) -> None:
@@ -91,10 +91,10 @@ def set_led(on: bool) -> None:
 def arm_esc_sequence() -> None:
     """ESC 아밍 시퀀스: 1599μs, 1799μs"""
     # 1599μs
-    kit.servo[ESC_CHANNEL].set_pulse_width_range(1599, 1599)
+    kit.servo[ESC_CHANNEL].set_pulse_width(1599)
     time.sleep(0.5)
     # 1799μs
-    kit.servo[ESC_CHANNEL].set_pulse_width_range(1799, 1799)
+    kit.servo[ESC_CHANNEL].set_pulse_width(1799)
     time.sleep(0.5)
     # 중립 (1800μs)
     set_throttle(120)

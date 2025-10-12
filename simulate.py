@@ -136,10 +136,10 @@ class RCCarPhysics:
                 motor_angle = int(self.MOTOR_NEUTRAL - accel_ratio * (self.MOTOR_NEUTRAL - self.MOTOR_REVERSE_MAX))
             
             # 모터 출력에 따른 가속력
-            # 목표: 풀액셀로 0->20km/h 8초
-            # 평균 가속도 = 20/8 = 2.5 km/h/s
-            # 초기 가속도를 더 높게 설정하여 평균 2.5를 맞춤
-            base_accel = 3.5  # km/h/s at 풀파워
+            # 목표: 풀액셀로 0->20km/h 5초
+            # 평균 가속도 = 20/5 = 4 km/h/s
+            # 초기 가속도를 더 높게 설정하여 평균 4를 맞춤
+            base_accel = 6.0  # km/h/s at 풀파워
             
             # 속도가 높아질수록 가속력 감소 (저항 증가)
             speed_factor = max(0.1, 1.0 - (self.current_speed_kmh / max_speed) * 0.7)
