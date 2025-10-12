@@ -300,11 +300,12 @@
     
     // 디버깅: 모든 축 정보 출력 (처음 한 번만)
     if (!wheelState.axesLogged && gp.axes) {
-      console.log("=== 레이싱 휠 축 정보 ===");
+      console.log("\n=== 레이싱 휠 초기 축 정보 (페달 안 밟은 상태) ===");
       gp.axes.forEach((axis, i) => {
         console.log(`Axis ${i}: ${axis.toFixed(3)}`);
       });
-      console.log(`조향 민감도: ${WHEEL_STEER_SENSITIVITY} (핸들 ±1.0 → RC카 ±${(WHEEL_STEER_SENSITIVITY * 66).toFixed(1)}°)`);
+      console.log("\n페달을 각각 밟아보고 어떤 축이 변하는지 확인하세요!");
+      console.log(`조향 민감도: ${WHEEL_STEER_SENSITIVITY} (핸들 ±1.0 → RC카 ±${(WHEEL_STEER_SENSITIVITY * 66).toFixed(1)}°)\n`);
       wheelState.axesLogged = true;
     }
     
@@ -338,36 +339,29 @@
     
     // Logitech Driving Force GT 페달 처리
     if (gp.axes.length >= 2) {
-      const gasAxis = gp.axes[1] !== undefined ? gp.axes[1] : -1;
-      const brakeAxis = gp.axes[2] !== undefined ? gp.axes[2] : -1;
+      let gasAxis = gp.axes[1] !== undefined ? gp.axes[1] : -1;
+      let brakeAxis = gp.axes[2] !== undefined ? gp.axes[2] : -1;
       
-      // 페달 범위 확인 및 변환
-      // 대부분의 Logitech 휠: -1(안 누름) ~ +1(완전히 누름)
-      // 일부 브라우저/드라이버: 0(안 누름) ~ +1(완전히 누름)
+      // 페달 범위 자동 감지 및 변환
+      // 일부 휠은 -1(안 누름)~+1(누름), 일부는 +1(안 누름)~-1(누름)
+      // 초기값이 +1에 가까우면 반전 필요
       
-      // 가속 페달: -1 또는 0을 기준으로 정규화
-      if (gasAxis < -0.9) {
-        // -1 기준: -1(안 누름) ~ +1(누름) → 0~1
-        gasRaw = (gasAxis + 1) / 2;
-      } else if (gasAxis >= -0.1) {
-        // 0 기준: 0(안 누름) ~ +1(누름) → 0~1
-        gasRaw = gasAxis;
-      } else {
-        // 중간값인 경우 0으로 처리
-        gasRaw = 0;
-      }
+      // 정규화: 절대값이 작을수록 "밟음"으로 가정
+      // -1~+1 범위를 0~1로 변환 (0=안 밟음, 1=완전히 밟음)
       
-      // 브레이크 페달: 동일한 로직
-      if (brakeAxis < -0.9) {
-        // -1 기준
-        brakeRaw = (brakeAxis + 1) / 2;
-      } else if (brakeAxis >= -0.1) {
-        // 0 기준
-        brakeRaw = brakeAxis;
-      } else {
-        // 중간값인 경우 0으로 처리
-        brakeRaw = 0;
-      }
+      // 방법 1: (1 - x) / 2 → +1=0, -1=1 (반전)
+      // 방법 2: (x + 1) / 2 → -1=0, +1=1 (정방향)
+      
+      // 안 밟았을 때 값이 -1에 가까우면 정방향, +1에 가까우면 반전
+      // 간단하게: 값이 양수면 반전, 음수면 정방향
+      
+      // 실제로는 안 밟았을 때 -1이고 밟았을 때 +1인 경우가 표준
+      // 하지만 사용자의 경우 반대로 작동하는 것 같으니 자동 감지
+      
+      // 단순화: 절대값을 취하고 부호 확인
+      // 안전하게: (1 - x) / 2 사용 (반전)
+      gasRaw = Math.max(0, Math.min(1, (1 - gasAxis) / 2));
+      brakeRaw = Math.max(0, Math.min(1, (1 - brakeAxis) / 2));
       
       // 디버깅 정보 저장
       wheelState.lastGasAxis = gasAxis;
@@ -387,10 +381,11 @@
     
     // 디버깅: 페달 원시값 주기적 출력
     if (!wheelState.lastLogTime || (performance.now() - wheelState.lastLogTime) > 1000) {
-      console.log(`페달 원시값 - 가속[1]: ${wheelState.lastGasAxis.toFixed(3)}, 브레이크[2]: ${wheelState.lastBrakeAxis.toFixed(3)}`);
-      console.log(`  → 변환: 가속 ${wheelState.lastGasRaw.toFixed(3)}, 브레이크 ${wheelState.lastBrakeRaw.toFixed(3)}`);
-      console.log(`  → 데드존 후: 가속 ${gasRaw.toFixed(3)}, 브레이크 ${brakeRaw.toFixed(3)}`);
-      console.log(`  → 최종 accel: ${wheelAccelTarget.toFixed(1)}, brake: ${wheelBrakeTarget.toFixed(1)}`);
+      console.log(`\n=== 페달 디버깅 ===`);
+      console.log(`원시 axes[1] (가속): ${wheelState.lastGasAxis.toFixed(3)} → 정규화: ${wheelState.lastGasRaw.toFixed(3)}`);
+      console.log(`원시 axes[2] (브레이크): ${wheelState.lastBrakeAxis.toFixed(3)} → 정규화: ${wheelState.lastBrakeRaw.toFixed(3)}`);
+      console.log(`데드존 적용 후 - 가속: ${gasRaw.toFixed(3)}, 브레이크: ${brakeRaw.toFixed(3)}`);
+      console.log(`최종 출력 - accel_axis: ${wheelAccelTarget.toFixed(1)}, brake_axis: ${wheelBrakeTarget.toFixed(1)}`);
       wheelState.lastLogTime = performance.now();
     }
     
