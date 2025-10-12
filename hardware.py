@@ -2,6 +2,19 @@ from adafruit_servokit import ServoKit
 import time
 
 
+# ===== 하드웨어 설정 상수 =====
+# Axis 범위
+AXIS_MIN = -50
+AXIS_MAX = 50
+
+# 조향 범위
+STEER_MIN = -66
+STEER_MAX = 66
+
+# 서보 PWM 펄스 범위
+SERVO_PULSE_MIN = 1000
+SERVO_PULSE_MAX = 2000
+
 # 채널 매핑
 STEER_CHANNEL = 0  # 조향 서보
 ESC_CHANNEL = 1    # ESC

@@ -1,5 +1,5 @@
 // static/app.js
-// 최소 구현: 키/버튼 입력 → 서버 전송, 조향은 steer_delta(자동 복귀 없음), 불필요 코드 제거
+// 최소 구현: 키/버튼/레이싱 휠 입력 → 서버 전송, 조향은 steer_delta(자동 복귀 없음), 불필요 코드 제거
 
 (() => {
   "use strict";
@@ -11,6 +11,12 @@
   const SEND_INTERVAL_MS = 70;     // axis 전송 주기
   const STEER_STEP_DEG = 2;        // 조향 변화량(도) - 더 빠른 조향을 위해 증가 (1 -> 3)
   const STEER_SEND_MS = 17;        // 조향 전송 주기 - 더 빠른 조향을 위해 감소 (17 -> 12)
+  
+  // ===== 레이싱 휠 설정 =====
+  const WHEEL_STEER_DEADZONE = 0.02;  // 스티어링 데드존
+  const WHEEL_PEDAL_DEADZONE = 0.05;  // 페달 데드존
+  const WHEEL_STEER_SENSITIVITY = 1.0; // 조향 민감도 (1.0 = 기본)
+  const WHEEL_AXIS_RATE = 80;         // 레이싱 휠 페달 반응 속도
 
   // ===== DOM =====
   const DOM = {
@@ -51,6 +57,12 @@
     displaySpeedKmh: 0,
   };
   const keyState = { w: false, s: false, a: false, d: false };
+
+  // ===== 레이싱 휠 상태 =====
+  let wheelConnected = false;
+  let wheelGamepad = null;
+  let lastWheelSteerAngle = 0;
+  let wheelAxisTarget = 0;
 
   // 웰컴 애니메이션 제거됨
 
@@ -184,9 +196,172 @@
     if (k in keyState) keyState[k] = false;
   });
 
+  // ===== 레이싱 휠 감지 및 입력 처리 =====
+  window.addEventListener("gamepadconnected", (e) => {
+    console.log("레이싱 휠 연결됨:", e.gamepad.id);
+    wheelConnected = true;
+    wheelGamepad = e.gamepad;
+    showToast("레이싱 휠 연결됨: " + e.gamepad.id, 3000);
+  });
+
+  window.addEventListener("gamepaddisconnected", (e) => {
+    console.log("레이싱 휠 연결 해제됨:", e.gamepad.id);
+    wheelConnected = false;
+    wheelGamepad = null;
+    showToast("레이싱 휠 연결 해제됨", 2000);
+  });
+
+  function getGamepad() {
+    if (!wheelConnected) return null;
+    const gamepads = navigator.getGamepads();
+    for (let gp of gamepads) {
+      if (gp && gp.connected) return gp;
+    }
+    return null;
+  }
+
+  function applyDeadzone(value, deadzone) {
+    if (Math.abs(value) < deadzone) return 0;
+    const sign = value < 0 ? -1 : 1;
+    return sign * (Math.abs(value) - deadzone) / (1 - deadzone);
+  }
+
+  // 버튼 상태 추적 (중복 입력 방지)
+  const wheelState = {
+    btn0Pressed: false,
+    btn4Pressed: false,
+    btn5Pressed: false
+  };
+
+  function processWheelInput(dt) {
+    const gp = getGamepad();
+    if (!gp || !gp.axes || gp.axes.length < 1) return false;
+
+    // Logitech Driving Force GT 매핑:
+    // Axis 0: 스티어링 휠 (-1=왼쪽, +1=오른쪽)
+    // Axis 1 또는 2: 가속 페달 (브라우저/드라이버에 따라 다름)
+    // Axis 2 또는 3: 브레이크 페달
+    
+    // 스티어링 입력
+    let steerRaw = gp.axes[0] || 0;
+    steerRaw = applyDeadzone(steerRaw, WHEEL_STEER_DEADZONE);
+    
+    // 스티어링을 각도로 변환 (-1~1 → -66~66도)
+    const STEER_MIN = -66;
+    const STEER_MAX = 66;
+    const targetSteerAngle = steerRaw * STEER_MAX * WHEEL_STEER_SENSITIVITY;
+    
+    // 이전 조향각과 비교하여 변화량 전송
+    const steerDelta = targetSteerAngle - lastWheelSteerAngle;
+    if (Math.abs(steerDelta) > 0.5) { // 0.5도 이상 변화 시에만 전송
+      send({ steer_delta: Math.round(steerDelta) });
+      lastWheelSteerAngle = targetSteerAngle;
+    }
+
+    // 페달 입력 (가속 - 브레이크)
+    // 브라우저에 따라 축 인덱스가 다를 수 있으므로 여러 축을 확인
+    let gasRaw = 0;
+    let brakeRaw = 0;
+    
+    // 일반적으로 Logitech 휠:
+    // - 가속: Axis 1 또는 Axis 2 (범위: -1~1 또는 0~1)
+    // - 브레이크: Axis 2 또는 Axis 3
+    if (gp.axes.length >= 2) {
+      // Axis 1과 2를 확인 (일반적인 매핑)
+      const axis1 = gp.axes[1] || 0;
+      const axis2 = gp.axes[2] || 0;
+      
+      // 페달은 보통 -1(안 누름) ~ 1(완전히 누름) 범위
+      // 또는 0(안 누름) ~ 1(완전히 누름)
+      gasRaw = axis1 >= 0 ? axis1 : (axis1 + 1) / 2;
+      brakeRaw = axis2 >= 0 ? axis2 : (axis2 + 1) / 2;
+      
+      // 브레이크가 Axis 5에 있는 경우도 있음
+      if (gp.axes.length > 5) {
+        const axis5 = gp.axes[5] || 0;
+        brakeRaw = Math.max(brakeRaw, axis5 >= 0 ? axis5 : (axis5 + 1) / 2);
+      }
+    }
+    
+    gasRaw = applyDeadzone(gasRaw, WHEEL_PEDAL_DEADZONE);
+    brakeRaw = applyDeadzone(brakeRaw, WHEEL_PEDAL_DEADZONE);
+    
+    // 페달 입력을 axis 값으로 변환
+    // 가속 페달 → 양수 (0~50), 브레이크 → 음수 (-50~0)
+    wheelAxisTarget = (gasRaw * AXIS_MAX) - (brakeRaw * Math.abs(AXIS_MIN));
+    wheelAxisTarget = clamp(wheelAxisTarget, AXIS_MIN, AXIS_MAX);
+    
+    // 버튼 입력 처리 (기어 변경)
+    // 일반적인 레이싱 휠 버튼 매핑:
+    // - 버튼 0~3: 기본 버튼
+    // - 버튼 4,5: 패들 시프터 (L/R)
+    // - 버튼 12~15: 십자키
+    if (gp.buttons && gp.buttons.length > 0) {
+      // 패들 시프터: 버튼 4(업시프트), 버튼 5(다운시프트)
+      if (gp.buttons[4] && gp.buttons[4].pressed && !wheelState.btn4Pressed) {
+        wheelState.btn4Pressed = true;
+        shiftGearUp();
+      } else if (!gp.buttons[4] || !gp.buttons[4].pressed) {
+        wheelState.btn4Pressed = false;
+      }
+      
+      if (gp.buttons[5] && gp.buttons[5].pressed && !wheelState.btn5Pressed) {
+        wheelState.btn5Pressed = true;
+        shiftGearDown();
+      } else if (!gp.buttons[5] || !gp.buttons[5].pressed) {
+        wheelState.btn5Pressed = false;
+      }
+      
+      // 전조등 토글: 버튼 0 (휠의 메인 버튼)
+      if (gp.buttons[0] && gp.buttons[0].pressed && !wheelState.btn0Pressed) {
+        wheelState.btn0Pressed = true;
+        DOM.btnHead.click();
+      } else if (!gp.buttons[0] || !gp.buttons[0].pressed) {
+        wheelState.btn0Pressed = false;
+      }
+    }
+    
+    return true; // 레이싱 휠이 활성 상태임을 반환
+  }
+  
+  // 기어 변경 헬퍼 함수
+  function shiftGearUp() {
+    const gears = ['P', 'R', 'N', 'D'];
+    const currentIdx = gears.indexOf(state.gear);
+    if (currentIdx < gears.length - 1) {
+      send({ gear: gears[currentIdx + 1] });
+    }
+  }
+  
+  function shiftGearDown() {
+    const gears = ['P', 'R', 'N', 'D'];
+    const currentIdx = gears.indexOf(state.gear);
+    if (currentIdx > 0) {
+      send({ gear: gears[currentIdx - 1] });
+    }
+  }
+
+  function showToast(message, duration = 2000) {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), duration);
+  }
+
   // ===== 조향: A/D 누르는 동안 주기적으로 steer_delta 전송 (자동 복귀 없음) =====
   let steerTimer = null;
   function updateSteerLoop() {
+    // 레이싱 휠이 연결되어 있으면 키보드 조향 비활성화
+    if (wheelConnected && getGamepad()) {
+      if (steerTimer) {
+        clearInterval(steerTimer);
+        steerTimer = null;
+      }
+      return;
+    }
+    
+    // 키보드 조향 처리
     const wantSteer = keyState.a || keyState.d;
     if (wantSteer && !steerTimer) {
       steerTimer = setInterval(() => {
@@ -202,12 +377,24 @@
   // ===== axis 전송 루프 =====
   let lastAxisSend = 0;
   function mainLoop(ts) {
-    // axis 변화 (W/S 누르고 있을 때만)
     const dt = 1 / 60; // 간단히 고정 step
-    if (keyState.w && !keyState.s) {
-      state.axis = clamp(state.axis + AXIS_RATE_PER_S * dt, AXIS_MIN, AXIS_MAX);
-    } else if (keyState.s && !keyState.w) {
-      state.axis = clamp(state.axis - AXIS_RATE_PER_S * dt, AXIS_MIN, AXIS_MAX);
+    
+    // 레이싱 휠 입력 처리 (우선순위)
+    const wheelActive = processWheelInput(dt);
+    
+    if (wheelActive) {
+      // 레이싱 휠이 활성 상태면 휠 입력 사용
+      // 부드러운 전환을 위해 스무딩 적용
+      const alpha = 1 - Math.exp(-dt / 0.05); // 50ms 타임상수
+      state.axis += (wheelAxisTarget - state.axis) * alpha;
+      state.axis = clamp(state.axis, AXIS_MIN, AXIS_MAX);
+    } else {
+      // 레이싱 휠이 없으면 키보드 입력 사용
+      if (keyState.w && !keyState.s) {
+        state.axis = clamp(state.axis + AXIS_RATE_PER_S * dt, AXIS_MIN, AXIS_MAX);
+      } else if (keyState.s && !keyState.w) {
+        state.axis = clamp(state.axis - AXIS_RATE_PER_S * dt, AXIS_MIN, AXIS_MAX);
+      }
     }
 
     // axis 주기 전송

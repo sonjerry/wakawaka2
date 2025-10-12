@@ -4,7 +4,10 @@ import threading
 import json
 import time
 from simulate import map_axis_to_angle
-from hardware import init_hardware, set_steer_angle, set_throttle, arm_esc_sequence, set_led
+from hardware import (
+    init_hardware, set_steer_angle, set_throttle, arm_esc_sequence, set_led,
+    AXIS_MIN, AXIS_MAX, STEER_MIN, STEER_MAX, SERVO_PULSE_MIN, SERVO_PULSE_MAX
+)
 
 app = Flask(__name__)
 sock = Sock(app)
@@ -20,19 +23,8 @@ state = {
     # RPM/속도 제거
 }
 
-# 설정
-AXIS_MIN = -50
-AXIS_MAX = 50
-STEER_MIN = -66
-STEER_MAX = 66
-SERVO_PULSE_MIN = 1000
-SERVO_PULSE_MAX = 2000
-
 # 하드웨어 초기화 (조향 중앙, ESC 중립)
 init_hardware()
-
-def map_steer_to_pulse(angle):
-    return int(SERVO_PULSE_MIN + (angle - STEER_MIN) * (SERVO_PULSE_MAX - SERVO_PULSE_MIN) / (STEER_MAX - STEER_MIN))
 
 @app.route('/')
 def index():
