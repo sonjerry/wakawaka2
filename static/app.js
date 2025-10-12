@@ -338,10 +338,10 @@
     let brakeRaw = 0;
     
     // Logitech Driving Force GT 페달 처리
-    if (gp.axes.length >= 2) {
-      // 주의: 일부 휠은 axes[1]=브레이크, axes[2]=가속으로 바뀌어 있음
-      let gasAxis = gp.axes[2] !== undefined ? gp.axes[2] : -1;     // 액셀 = axes[2]
-      let brakeAxis = gp.axes[1] !== undefined ? gp.axes[1] : -1;   // 브레이크 = axes[1]
+    if (gp.axes.length >= 3) {
+      // 사용자 휠 매핑: axes[2]=액셀, axes[5]=브레이크
+      let gasAxis = gp.axes[2] !== undefined ? gp.axes[2] : 1;     // 액셀 = axes[2]
+      let brakeAxis = gp.axes[5] !== undefined ? gp.axes[5] : 1;   // 브레이크 = axes[5]
       
       // 페달 범위 자동 감지 및 변환
       // 일부 휠은 -1(안 누름)~+1(누름), 일부는 +1(안 누름)~-1(누름)
@@ -389,10 +389,9 @@
       });
       console.log(`\n현재 매핑:`);
       console.log(`  액셀(axes[2]): ${wheelState.lastGasAxis.toFixed(3)} → 정규화: ${wheelState.lastGasRaw.toFixed(3)}`);
-      console.log(`  브레이크(axes[1]): ${wheelState.lastBrakeAxis.toFixed(3)} → 정규화: ${wheelState.lastBrakeRaw.toFixed(3)}`);
+      console.log(`  브레이크(axes[5]): ${wheelState.lastBrakeAxis.toFixed(3)} → 정규화: ${wheelState.lastBrakeRaw.toFixed(3)}`);
       console.log(`데드존 후 - 가속: ${gasRaw.toFixed(3)}, 브레이크: ${brakeRaw.toFixed(3)}`);
       console.log(`최종 - accel_axis: ${wheelAccelTarget.toFixed(1)}, brake_axis: ${wheelBrakeTarget.toFixed(1)}`);
-      console.log(`\n👉 브레이크 페달을 밟고 어떤 축이 변하는지 확인하세요!`);
       wheelState.lastLogTime = performance.now();
     }
     
