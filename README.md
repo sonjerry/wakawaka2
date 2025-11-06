@@ -4,16 +4,6 @@
 ## 하드웨어 구성
 <img width="1042" height="584" alt="24acd049-5ad7-409a-b5c0-1e76deecc44d__2025-09-08_144406" src="https://github.com/user-attachments/assets/ad21f9fb-eb09-46ae-a6ff-f3c78ea8f8dc" />
 
-- **라즈베리파이5** : 메인 컨트롤러
-- **4G 핫스팟 동글** : 통신사망에 붙일 수 있는 동글
-- **리포 배터리(7.4V)** : ESC 모듈에 직결, UBEC을 통해 하강한 5V는 PWM과 라즈베리파이 공급 
-- **UBEC** : 전압 변환 모듈
-- **ESC + DC 모터** : 구동부 제어, PWM 1번 채널
-- **서보모터** : 조향 제어, PWM 0번 채널
-- **PWM 보드** : 모터 및 서보 신호 분배
-- **기타** : 등화류 제어 및 초음파 센서 등 기능 확장
-
----
 
 ## 소프트웨어 구성
 
@@ -24,7 +14,7 @@
 
 ## 진행사항 기록
 
- -https://leegaeulblog.onrender.com/blog?progress=p1
+ -https://jabgihome.onrender.com/blog?progress=p1
 
 
 
