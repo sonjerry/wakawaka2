@@ -8,13 +8,19 @@
 ## 소프트웨어 구성
 
  - 통신사 망에 붙은 후 tailscale을 이용해 가상 ip 를 받고, 웹서버 형식으로 통신
- - 실시간 스트리밍 영상을 위한 별개의 webrtc 서버 구동이 필수임.
+ - 실시간 스트리밍 영상을 위한 별개의 webrtc 서버 구동이 필수입니다.
 
----
+
 
 ## 조종방식
 ![2684817_1](https://github.com/user-attachments/assets/dfeb6cba-dc9a-4c05-90fb-bd4664527b04)
 
+Web Gamepad API 를 이용하여 레이싱휠로 조종합니다.
+
+## 변속 로직
+<img width="1051" height="598" alt="image" src="https://github.com/user-attachments/assets/9c78d2f2-af5c-4aa8-8270-bc6db73fdc0a" />
+
+가상변속기를 구현하여 내연기관 자동차의 주행질감을 목표로 합니다.
 
 
 
