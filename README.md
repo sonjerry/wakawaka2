@@ -12,6 +12,12 @@
 
 ---
 
+## 조종방식
+![2684817_1](https://github.com/user-attachments/assets/dfeb6cba-dc9a-4c05-90fb-bd4664527b04)
+
+
+
+
 ## 진행사항 기록
 
  -https://jabgihome.onrender.com/blog?progress=p1
